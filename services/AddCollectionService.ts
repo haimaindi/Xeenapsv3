@@ -4,7 +4,7 @@ import { callAiProxy } from "./gasService";
 
 /**
  * AddCollectionService - Metadata Extraction via AI Proxy.
- * FOCUS: Basic metadata and robust academic citations ONLY.
+ * FOCUS: Basic metadata, robust citations, keywords, and labels.
  * EXCLUDE: Deep insights (abstract, summary, methodology, etc.)
  */
 export const extractMetadataWithAI = async (textSnippet: string): Promise<Partial<LibraryItem>> => {
@@ -15,19 +15,22 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
     EXTRACT DATA FROM THE PROVIDED PDF TEXT AND RETURN IN RAW JSON FORMAT ONLY.
 
     SCOPE LIMITATION (CRITICAL):
-    - DO NOT analyze or extract: researchMethodology, abstract, summary, strength, weakness, unfamiliarTerminology, supportingReferences, videoRecommendation, quickTipsForYou.
-    - ONLY extract the fields defined in the JSON schema below.
+    - ANALYZE ONLY: title, topic, subTopic, authors, publisher, year, keywords, labels, and all 6 citation fields.
+    - DO NOT analyze: researchMethodology, abstract, summary, strength, weakness, unfamiliarTerminology, supportingReferences, videoRecommendation, quickTipsForYou.
 
     CRITICAL INSTRUCTION FOR ROBUSTNESS:
-    1. COMPLETE FIELDS (DO NOT SHORTEN/TRUNCATE):
+    1. COMPLETE FIELDS (NO TRUNCATION):
        - "title": Full, official academic title.
        - "authors": List of all full names found.
-       - "publisher": Full journal or publisher name.
-       - "bibAPA", "bibHarvard", "bibChicago": COMPLETE bibliographic entries. Include full titles, full journal names, volume, issue, page ranges, and DOI/URL. NEVER use "..." or summarize the title.
+       - "publisher": MANDATORY. Identify the Journal Name, University, or Publishing House. DO NOT use "Not Specified", "N/A", or "Unknown". Look carefully at the header, footer, or first page.
+       - "bibAPA", "bibHarvard", "bibChicago": COMPLETE bibliographic entries. Include full titles, full journal names, volume, issue, page ranges, and DOI. NEVER shorten.
     
     2. CONCISE FIELDS:
        - "topic": Exactly 2 words describing the main field.
        - "subTopic": Exactly 2 words describing the specific niche.
+       - "keywords": Exactly 5 relevant academic keywords extracted from content.
+       - "labels": Exactly 3 thematic labels extracted from content.
+       - "year": Accurately identify the exact year of publication from the source. If none of source provide year of publication, return empty
 
     3. STYLE COMPLIANCE: 
        - inTextAPA: (Author, Year)
@@ -39,18 +42,18 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
       "title": "Full Academic Title",
       "authors": ["Full Name 1", "Full Name 2"],
       "year": "YYYY",
-      "publisher": "Full Journal Name",
+      "publisher": "Full Journal/Publisher Name",
       "category": "e.g., Original Research",
       "topic": "Two Words",
       "subTopic": "Two Words",
-      "keywords": ["k1", "k2", "k3", "k4", "k5"],
-      "labels": ["L1", "L2", "L3"],
+      "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
+      "labels": ["label1", "label2", "label3"],
       "inTextAPA": "...",
       "inTextHarvard": "...",
       "inTextChicago": "...",
-      "bibAPA": "COMPLETE APA 7th Edition Bibliographic Entry",
-      "bibHarvard": "COMPLETE Harvard Style Bibliographic Entry",
-      "bibChicago": "COMPLETE Chicago Author-Date Bibliographic Entry"
+      "bibAPA": "COMPLETE APA 7th Edition Entry",
+      "bibHarvard": "COMPLETE Harvard Entry",
+      "bibChicago": "COMPLETE Chicago Entry"
     }
 
     TEXT SNIPPET TO ANALYZE:
