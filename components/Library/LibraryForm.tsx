@@ -76,27 +76,27 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       try {
         const result = await uploadAndExtract(selectedFile);
         if (result) {
-          // Robust auto-fill: prioritize extracted values if they are not null/undefined
+          // Robust auto-fill from Python Heuristics
           setFormData(prev => ({
             ...prev,
-            title: result.title !== undefined ? result.title : prev.title,
-            year: result.year !== undefined ? result.year : prev.year,
-            publisher: result.publisher !== undefined ? result.publisher : prev.publisher,
+            title: result.title || prev.title,
+            year: result.year || prev.year,
+            publisher: result.publisher || prev.publisher,
             authors: (result.authors && result.authors.length > 0) ? result.authors : prev.authors,
             keywords: (result.keywords && result.keywords.length > 0) ? result.keywords : prev.keywords,
             labels: (result.keywords && result.keywords.length > 0) ? result.keywords : prev.labels,
             type: (result.type as LibraryType) || prev.type,
             category: result.category || prev.category,
             fileId: result.fileId || prev.fileId,
-            chunks: result.chunks || prev.chunks
+            chunks: result.chunks || []
           }));
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Extraction failed:", err);
         showXeenapsAlert({
           icon: 'warning',
           title: 'Extraction Notice',
-          text: 'File uploaded, but metadata could not be fully extracted.',
+          text: err.message || 'File uploaded, but metadata could not be fully extracted.',
           confirmButtonText: 'OK'
         });
       } finally {
@@ -208,8 +208,8 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                   {isExtracting ? (
                     <div className="flex flex-col items-center animate-pulse">
                       <ArrowPathIcon className="w-10 h-10 text-[#004A74] animate-spin mb-3" />
-                      <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">Extracting Metadata...</p>
-                      <p className="text-[10px] text-gray-400 mt-1">Google Drive OCR is processing your PDF</p>
+                      <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">Extracting Data...</p>
+                      <p className="text-[10px] text-gray-400 mt-1">Python is processing your PDF text chunks</p>
                     </div>
                   ) : (
                     <>

@@ -1,61 +1,72 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
+import { LibraryItem, LibraryType } from "../types";
 
 /**
- * Fix: Use 'gemini-3-flash-preview' for Basic Text Tasks (summarization/categorization) 
- * as recommended in the SDK guidelines for optimal reasoning and response quality.
+ * Uses Gemini to intelligently parse structured metadata from raw text.
  */
-export const summarizeContent = async (title: string, content: string): Promise<string> => {
-  // Always use a new instance to capture the latest selected API key from the environment.
+export const parseLibraryMetadata = async (textSample: string): Promise<Partial<LibraryItem>> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
+      contents: `You are a research assistant. Analyze this text from a document: "${textSample.substring(0, 6000)}".
+      Extract the metadata and return it in the specified JSON format. 
+      If a field is unknown, return an empty string or empty array.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING, description: "The official title of the paper or document." },
+            authors: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of individual author names." },
+            publisher: { type: Type.STRING, description: "Journal name, university, or publisher." },
+            year: { type: Type.STRING, description: "Year of publication (YYYY)." },
+            keywords: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Top 5 relevant keywords." },
+            type: { type: Type.STRING, description: "Categorize as: Literature, Task, Personal, or Other." },
+            category: { type: Type.STRING, description: "Categorize as: Original Research or Review." }
+          },
+          required: ["title", "authors", "year"]
+        }
+      }
+    });
+
+    const result = JSON.parse(response.text || '{}');
+    return result;
+  } catch (error) {
+    console.error('Gemini Parsing Error:', error);
+    return {};
+  }
+};
+
+export const summarizeContent = async (title: string, content: string): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
       contents: `Summarize this PKM item titled "${title}". 
       Content: ${content.substring(0, 5000)}
-      Provide a very concise summary (max 2 sentences) highlighting key points. 
-      Output only the summary text.`,
+      Provide a very concise summary (max 2 sentences). Output only text.`,
     });
-    
-    // Using .text property directly as per SDK guidelines.
     return response.text || 'No summary generated.';
-  } catch (error: any) {
-    console.error('AI Summarization Error:', error);
-    // If the request fails with "Requested entity was not found.", reset key selection state and prompt for a new key.
-    if (error?.message?.includes('Requested entity was not found')) {
-      if (window.aistudio?.openSelectKey) {
-        await window.aistudio.openSelectKey();
-      }
-    }
+  } catch (error) {
     return 'AI processing failed';
   }
 };
 
 export const suggestTags = async (title: string, content: string): Promise<string[]> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Analyze this title: "${title}" and content: "${content.substring(0, 1000)}".
-      Suggest exactly 5 relevant short tags for categorization. 
-      Output only the tags separated by commas, no other text.`,
+      contents: `Suggest exactly 5 relevant short tags for: "${title}" and "${content.substring(0, 1000)}".
+      Output only tags separated by commas.`,
     });
-    
     const text = response.text;
     if (!text) return [];
-    
-    return text.split(',')
-      .map(tag => tag.trim().toLowerCase())
-      .filter(t => t.length > 0 && t.length < 20);
-  } catch (error: any) {
-    console.error('AI Tag Suggestion Error:', error);
-    if (error?.message?.includes('Requested entity was not found')) {
-      if (window.aistudio?.openSelectKey) {
-        await window.aistudio.openSelectKey();
-      }
-    }
+    return text.split(',').map(tag => tag.trim().toLowerCase()).filter(t => t.length > 0);
+  } catch (error) {
     return [];
   }
 };

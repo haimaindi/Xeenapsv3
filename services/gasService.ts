@@ -11,69 +11,68 @@ const Toast = Swal.mixin({
   timerProgressBar: true,
 });
 
-const checkConfig = () => {
-  if (!GAS_WEB_APP_URL) {
-    Swal.fire({
-      title: 'Configuration Missing',
-      text: 'VITE_GAS_URL is not set in environment variables.',
-      icon: 'error'
-    });
-    return false;
-  }
-  return true;
-};
-
 export const fetchLibrary = async (): Promise<LibraryItem[]> => {
-  if (!checkConfig()) return [];
   try {
-    const response = await fetch(`${GAS_WEB_APP_URL}?action=getLibrary`, {
-      method: 'GET',
-      mode: 'cors',
-    });
+    const response = await fetch(`${GAS_WEB_APP_URL}?action=getLibrary`);
     const result: GASResponse<LibraryItem[]> = await response.json();
     return result.data || [];
   } catch (error) {
-    console.error('GAS Fetch Error:', error);
     return [];
   }
 };
 
+/**
+ * Orchestrates Python Text Extraction + GAS Drive Storage.
+ * Gemini is NO LONGER used here to save quota.
+ */
 export const uploadAndExtract = async (file: File): Promise<ExtractionResult | null> => {
-  if (!checkConfig()) return null;
-  
-  const reader = new FileReader();
-  const base64Promise = new Promise<string>((resolve) => {
-    reader.onload = () => {
-      const base64 = (reader.result as string).split(',')[1];
-      resolve(base64);
-    };
-    reader.readAsDataURL(file);
-  });
-
-  const fileData = await base64Promise;
-
   try {
-    const response = await fetch(GAS_WEB_APP_URL, {
+    // 1. Step: Python PDF Extraction (Metadata + Text Chunks)
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const pyResponse = await fetch('/api/extract', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!pyResponse.ok) throw new Error('Python extraction failed');
+    const pyResult = await pyResponse.json();
+    
+    if (pyResult.status !== 'success') throw new Error(pyResult.message);
+    const extractionData = pyResult.data;
+
+    // 2. Step: Upload to Drive via GAS (To get fileId for storage)
+    const reader = new FileReader();
+    const base64Promise = new Promise<string>((resolve) => {
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.readAsDataURL(file);
+    });
+    const fileData = await base64Promise;
+
+    const gasResponse = await fetch(GAS_WEB_APP_URL, {
       method: 'POST',
       body: JSON.stringify({ 
-        action: 'uploadAndExtract', 
+        action: 'uploadOnly', 
         fileData, 
         fileName: file.name 
       }),
     });
-    const result: GASResponse<ExtractionResult> = await response.json();
-    if (result.status === 'success') {
-      return result.data || null;
-    }
-    throw new Error(result.message || 'Unknown extraction error');
-  } catch (error) {
+    const gasResult = await gasResponse.json();
+    const fileId = gasResult.status === 'success' ? gasResult.fileId : '';
+
+    return {
+      ...extractionData,
+      fileId
+    } as ExtractionResult;
+
+  } catch (error: any) {
     console.error('Extraction Error:', error);
-    return null;
+    throw error;
   }
 };
 
 export const saveLibraryItem = async (item: LibraryItem): Promise<boolean> => {
-  if (!checkConfig()) return false;
   try {
     const response = await fetch(GAS_WEB_APP_URL, {
       method: 'POST',
@@ -98,30 +97,13 @@ export const saveLibraryItem = async (item: LibraryItem): Promise<boolean> => {
 };
 
 export const deleteLibraryItem = async (id: string): Promise<boolean> => {
-  if (!checkConfig()) return false;
-  const confirm = await Swal.fire({
-    title: 'Delete Item?',
-    text: "This action cannot be undone.",
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#004A74',
-    cancelButtonColor: '#d33',
-    confirmButtonText: 'Yes, delete!'
-  });
-
-  if (!confirm.isConfirmed) return false;
-
   try {
     const response = await fetch(GAS_WEB_APP_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'deleteItem', id }),
     });
     const result: GASResponse<any> = await response.json();
-    if (result.status === 'success') {
-      Toast.fire({ icon: 'success', title: 'Deleted successfully' });
-      return true;
-    }
-    return false;
+    return result.status === 'success';
   } catch (error) {
     return false;
   }
