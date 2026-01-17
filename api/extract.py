@@ -70,8 +70,8 @@ def extract():
         # 2. Heuristik metadata tetap menggunakan teks awal
         metadata = extract_metadata_heuristics(limited_text, file.filename)
         
-        # 3. Snippet untuk AI (Groq/Gemini) dikurangi ke 2500 karakter sesuai permintaan
-        ai_snippet = limited_text[:2500]
+        # 3. Snippet untuk AI (Groq/Gemini) dikurangi ke 7500 karakter sesuai permintaan
+        ai_snippet = limited_text[:7500]
         
         # 4. Split teks ke dalam 10 chunks (masing-masing 20.000 karakter)
         chunk_size = 20000

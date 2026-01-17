@@ -9,7 +9,7 @@ import { callAiProxy } from "./gasService";
  */
 export const extractMetadataWithAI = async (textSnippet: string): Promise<Partial<LibraryItem>> => {
   try {
-    const truncatedSnippet = textSnippet.substring(0, 2500);
+    const truncatedSnippet = textSnippet.substring(0, 7500);
 
     const prompt = `ACT AS AN EXPERT SENIOR ACADEMIC LIBRARIAN. 
     EXTRACT DATA FROM THE PROVIDED PDF TEXT AND RETURN IN RAW JSON FORMAT ONLY.
