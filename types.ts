@@ -34,8 +34,8 @@ export interface LibraryItem {
   category: string;
   topic: string;
   subTopic: string;
-  author: string; // Display string for table
-  authors: string[]; // Multi-author list
+  author: string; 
+  authors: string[];
   publisher: string;
   year: string;
   
@@ -44,16 +44,25 @@ export interface LibraryItem {
   source: SourceType;
   format: FileFormat;
   url?: string;
-  fileId?: string; // Drive file ID
+  fileId?: string;
   
   // Tags & Labels
   keywords: string[];
   labels: string[];
-  tags: string[]; // For backward compatibility / general tagging
+  tags: string[];
   
-  // Citations
-  inTextCitation?: string;
-  bibCitation?: string;
+  // Academic & Deep Insights (NEW)
+  inTextCitation?: string;       // APA 7, Harvard, Chicago
+  bibCitation?: string;          // APA 7, Harvard, Chicago
+  researchMethodology?: string;
+  abstract?: string;
+  summary?: string;
+  strength?: string;             // Numbered List
+  weakness?: string;             // Numbered List
+  unfamiliarTerminology?: string; // Numbered List
+  supportingReferences?: string; // Numbered List
+  videoRecommendation?: string;  // YouTube Embed ID
+  quickTipsForYou?: string;      // Narrative Paragraph
   
   // Large Data Handling
   content?: string;
@@ -62,6 +71,11 @@ export interface LibraryItem {
   extractedInfo3?: string;
   extractedInfo4?: string;
   extractedInfo5?: string;
+  extractedInfo6?: string;
+  extractedInfo7?: string;
+  extractedInfo8?: string;
+  extractedInfo9?: string;
+  extractedInfo10?: string;
   
   // UI States
   isFavorite?: boolean;
@@ -74,21 +88,9 @@ export interface GASResponse<T> {
   message?: string;
 }
 
-export interface ExtractionResult {
-  title?: string;
-  authors?: string[];
-  publisher?: string;
-  year?: string;
-  keywords?: string[];
+export interface ExtractionResult extends Partial<LibraryItem> {
   fullText?: string;
   chunks?: string[];
-  type?: LibraryType;
-  category?: string;
-  fileId?: string;
-  // Added fields to support metadata refinement and resolve type errors in LibraryForm
-  topic?: string;
-  subTopic?: string;
-  labels?: string[];
   aiSnippet?: string;
 }
 

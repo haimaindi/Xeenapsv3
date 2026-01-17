@@ -4,25 +4,39 @@ import { callAiProxy } from "./gasService";
 
 /**
  * AddCollectionService via Secure GAS Proxy.
- * Metadata extraction kini diproses sepenuhnya di backend untuk keamanan.
+ * Melakukan ekstraksi metadata dasar dan deep insights akademik.
  */
 export const extractMetadataWithAI = async (textSnippet: string): Promise<Partial<LibraryItem>> => {
   try {
-    const prompt = `ACT AS A SENIOR ACADEMIC DATA EXTRACTOR.
-    TASK: Analyze the text and extract metadata into a strict JSON format.
+    const prompt = `ACT AS A SENIOR ACADEMIC DATA EXTRACTOR & RESEARCH ANALYST.
+    TASK: Analyze the provided document text snippet and extract deep metadata.
+    
+    IMPORTANT: Provide citations in APA 7th Edition, Harvard, and Chicago Style (Author-Date).
+    For Video Recommendation, identify a highly relevant YouTube video topic and provide a likely YouTube ID if found, or suggest a search term.
     
     EXPECTED JSON SCHEMA:
     {
-      "title": "string",
-      "authors": ["string"],
-      "publisher": "string",
-      "year": "string",
+      "title": "Full Academic Title",
+      "authors": ["Full Author Names"],
+      "publisher": "Journal or Publisher Name",
+      "year": "YYYY",
       "type": "Literature" | "Task" | "Personal" | "Other",
-      "category": "string",
-      "topic": "string",
-      "subTopic": "string",
-      "keywords": ["string"],
-      "labels": ["string"]
+      "category": "e.g., Original Research, Review, case study",
+      "topic": "Broad Scientific Topic",
+      "subTopic": "Specific Research Area",
+      "keywords": ["5-7 specific keywords"],
+      "labels": ["thematic labels"],
+      "inTextCitation": "Provide APA 7 parenthetical citation e.g. (Author, 2024)",
+      "bibCitation": "Provide full Bibliographic Citation in APA 7 style",
+      "researchMethodology": "Describe the methods used in the study",
+      "abstract": "Concise abstract of the document",
+      "summary": "2-3 sentences of main findings",
+      "strength": "1. First strength\\n2. Second strength",
+      "weakness": "1. First weakness\\n2. Second weakness",
+      "unfamiliarTerminology": "1. Term: Definition\\n2. Term: Definition",
+      "supportingReferences": "1. Ref 1\\n2. Ref 2",
+      "videoRecommendation": "YouTube Video ID (e.g. dQw4w9WgXcQ) or relevant search query",
+      "quickTipsForYou": "Narrative paragraph on how to use this knowledge in practice."
     }
     
     TEXT SNIPPET:
@@ -32,9 +46,10 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
     
     if (!jsonResponse) return {};
     
-    return JSON.parse(jsonResponse);
+    const parsed = JSON.parse(jsonResponse);
+    return parsed;
   } catch (error) {
-    console.error('Secure Extraction Workflow Failed:', error);
+    console.error('Deep Extraction Workflow Failed:', error);
     return {};
   }
 };

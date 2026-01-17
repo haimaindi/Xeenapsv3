@@ -12,8 +12,6 @@ def clean_text(text):
     return " ".join(text.split())
 
 def extract_metadata_heuristics(full_text, filename):
-    lines = [l.strip() for l in full_text.split('\n') if l.strip()]
-    
     metadata = {
         "title": filename.replace(".pdf", "").replace("_", " "),
         "authors": [],
@@ -54,10 +52,9 @@ def extract():
         try:
             reader = PdfReader(f)
             full_text = ""
-            # Process enough pages to get meaningful content
-            max_pages = min(len(reader.pages), 30)
-            for i in range(max_pages):
-                page_text = reader.pages[i].extract_text()
+            # Loop through all pages
+            for page in reader.pages:
+                page_text = page.extract_text()
                 if page_text:
                     full_text += page_text + "\n"
         except Exception as pdf_err:
@@ -66,14 +63,20 @@ def extract():
         if not full_text.strip():
             return jsonify({"status": "error", "message": "Could not extract text."}), 422
 
-        # Basic heuristics for fallback
-        metadata = extract_metadata_heuristics(full_text, file.filename)
+        # 1. Batasi total teks sesuai permintaan (200.000 karakter)
+        limit_total = 200000
+        limited_text = full_text[:limit_total]
+
+        # 2. Heuristik metadata tetap menggunakan teks awal
+        metadata = extract_metadata_heuristics(limited_text, file.filename)
         
-        # Prepare the 10k snippet for AI
-        ai_snippet = full_text[:10000]
+        # 3. Snippet untuk AI (Groq/Gemini) biasanya cukup 12k karakter pertama
+        ai_snippet = limited_text[:12000]
         
-        # Split text for Spreadsheet storage (max 5 chunks @ 48k chars)
-        chunks = [full_text[i:i+48000] for i in range(0, len(full_text), 48000)][:5]
+        # 4. Split teks ke dalam 10 chunks (masing-masing 20.000 karakter)
+        # Ini akan mengisi extractedInfo1 sampai extractedInfo10 secara merata
+        chunk_size = 20000
+        chunks = [limited_text[i:i+chunk_size] for i in range(0, len(limited_text), chunk_size)][:10]
 
         return jsonify({
             "status": "success",

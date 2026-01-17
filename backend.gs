@@ -11,6 +11,17 @@ const CONFIG = {
     LIBRARY: '1wPTMx6yrv2iv0lejpNdClmC162aD3iekzSWP5EPNm0I',
     KEYS: '1QRzqKe42ck2HhkA-_yAGS-UHppp96go3s5oJmlrwpc0',
     AI_CONFIG: '1RVYM2-U5LRb8S8JElRSEv2ICHdlOp9pnulcAM8Nd44s'
+  },
+  SCHEMAS: {
+    LIBRARY: [
+      'id', 'title', 'type', 'category', 'topic', 'subTopic', 'author', 'publisher', 'year', 
+      'source', 'format', 'url', 'fileId', 'tags', 'createdAt', 'updatedAt',
+      'inTextCitation', 'bibCitation', 'researchMethodology', 'abstract', 'summary',
+      'strength', 'weakness', 'unfamiliarTerminology', 'supportingReferences', 
+      'videoRecommendation', 'quickTipsForYou',
+      'extractedInfo1', 'extractedInfo2', 'extractedInfo3', 'extractedInfo4', 'extractedInfo5',
+      'extractedInfo6', 'extractedInfo7', 'extractedInfo8', 'extractedInfo9', 'extractedInfo10'
+    ]
   }
 };
 
@@ -41,7 +52,6 @@ function doPost(e) {
       return createJsonResponse({ status: 'success', fileId: file.getId() });
     }
     
-    // AI PROXY ACTION (Securely handle Groq & Gemini)
     if (action === 'aiProxy') {
       const { provider, prompt, modelOverride } = data;
       return createJsonResponse(handleAiRequest(provider, prompt, modelOverride));
@@ -53,9 +63,6 @@ function doPost(e) {
   }
 }
 
-/**
- * Logika AI Proxy dengan Rotasi Key Otomatis
- */
 function handleAiRequest(provider, prompt, modelOverride) {
   const keys = (provider === 'groq') ? getKeysFromSheet('Groq', 2) : getKeysFromSheet('ApiKeys', 1);
   const config = getAiConfig();
@@ -74,7 +81,7 @@ function handleAiRequest(provider, prompt, modelOverride) {
       if (response) return { status: 'success', data: response };
     } catch (err) {
       console.warn(`Key #${i+1} for ${provider} failed: ${err.toString()}`);
-      if (i === keys.length - 1) throw err; // Jika kunci terakhir, lempar error
+      if (i === keys.length - 1) throw err;
     }
   }
   return { status: 'error', message: 'All keys failed or limited' };
@@ -85,7 +92,7 @@ function callGroqApi(apiKey, model, prompt) {
   const payload = {
     model: model,
     messages: [
-      { role: "system", content: "You are a senior data extractor. Return ONLY strict JSON." },
+      { role: "system", content: "You are an expert academic research assistant. Analyze documents deeply. Return ONLY strict JSON." },
       { role: "user", content: prompt }
     ],
     temperature: 0.1,
@@ -101,13 +108,12 @@ function callGroqApi(apiKey, model, prompt) {
   };
   
   const res = UrlFetchApp.fetch(url, options);
-  if (res.getResponseCode() === 429) return null; // Rate limited, return null to rotate
+  if (res.getResponseCode() === 429) return null;
   const json = JSON.parse(res.getContentText());
   return json.choices[0].message.content;
 }
 
 function callGeminiApi(apiKey, model, prompt) {
-  // Gunakan endpoint REST Gemini
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const payload = {
     contents: [{ parts: [{ text: prompt }] }]
@@ -168,7 +174,7 @@ function getAllItems(ssId, sheetName) {
 function saveToSheet(ssId, sheetName, item) {
   const ss = SpreadsheetApp.openById(ssId);
   const sheet = ss.getSheetByName(sheetName);
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const headers = CONFIG.SCHEMAS.LIBRARY;
   const rowData = headers.map(h => {
     const val = item[h];
     return (Array.isArray(val) || (typeof val === 'object' && val !== null)) ? JSON.stringify(val) : (val || '');
