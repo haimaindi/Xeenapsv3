@@ -1,13 +1,10 @@
 
 import io
 import re
-import pdfplumber
+from pypdf import PdfReader
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
-
-def clean_text(text):
-    return " ".join(text.split())
 
 def extract_metadata_heuristics(full_text, filename):
     lines = [l.strip() for l in full_text.split('\n') if l.strip()]
@@ -21,7 +18,7 @@ def extract_metadata_heuristics(full_text, filename):
         "type": "Literature"
     }
 
-    # 1. Title Heuristic: Usually one of the first 10 lines, long, and not a journal name
+    # 1. Title Heuristic
     journal_noises = ["journal", "proceedings", "vol.", "no.", "issn", "http", "doi", "original", "article"]
     for i in range(min(15, len(lines))):
         line = lines[i]
@@ -30,20 +27,19 @@ def extract_metadata_heuristics(full_text, filename):
             metadata["title"] = line
             break
 
-    # 2. Year Heuristic: Look for 4 digits starting with 19 or 20 in the first 5000 chars
-    year_match = re.search(r'\b(19|20)\d{2}\b', full_text[:5000])
+    # 2. Year Heuristic
+    year_match = re.search(r'\b(19|20)\d{2}\b', full_text[:10000])
     if year_match:
         metadata["year"] = year_match.group(0)
 
-    # 3. Publisher Heuristic: Common academic publishers
+    # 3. Publisher Heuristic
     publishers = ["Elsevier", "Springer", "IEEE", "MDPI", "Nature", "Science", "Wiley", "Taylor & Francis", "ACM", "Frontiers", "Sage"]
     for pub in publishers:
-        if pub.lower() in full_text[:10000].lower():
+        if pub.lower() in full_text[:15000].lower():
             metadata["publisher"] = pub
             break
 
-    # 4. Author Heuristic: Lines following the title often contain commas or 'and'
-    # This is a simple guess based on name patterns
+    # 4. Author Heuristic
     title_idx = -1
     for i, line in enumerate(lines):
         if line == metadata["title"]:
@@ -53,7 +49,6 @@ def extract_metadata_heuristics(full_text, filename):
     if title_idx != -1 and title_idx + 1 < len(lines):
         potential_authors = lines[title_idx + 1]
         if "," in potential_authors or " and " in potential_authors.lower():
-            # Clean common titles
             cleaned = re.sub(r'(PhD|MSc|MD|Prof\.|Dr\.)', '', potential_authors)
             metadata["authors"] = [a.strip() for a in re.split(r',| and ', cleaned) if len(a.strip()) > 2][:5]
 
@@ -68,27 +63,36 @@ def extract_metadata_heuristics(full_text, filename):
 def extract():
     try:
         if 'file' not in request.files:
-            return jsonify({"status": "error", "message": "No file provided"}), 400
+            return jsonify({"status": "error", "message": "No file part in the request"}), 400
         
         file = request.files['file']
-        filename = file.filename
-        full_text = ""
+        if file.filename == '':
+            return jsonify({"status": "error", "message": "No file selected"}), 400
+
+        # Read file into memory buffer
+        file_bytes = file.read()
+        f = io.BytesIO(file_bytes)
         
-        with pdfplumber.open(file) as pdf:
-            for page in pdf.pages:
-                text = page.extract_text()
-                if text:
-                    full_text += text + "\n"
-                if len(full_text) > 300000: # Limit for safety
-                    break
+        # Load PDF
+        try:
+            reader = PdfReader(f)
+            full_text = ""
+            # Extract from first 30 pages to balance between data and performance
+            max_pages = min(len(reader.pages), 30)
+            for i in range(max_pages):
+                page_text = reader.pages[i].extract_text()
+                if page_text:
+                    full_text += page_text + "\n"
+        except Exception as pdf_err:
+            return jsonify({"status": "error", "message": f"PDF Parsing Error: {str(pdf_err)}"}), 422
 
         if not full_text.strip():
-            return jsonify({"status": "error", "message": "Could not read text from PDF."}), 422
+            return jsonify({"status": "error", "message": "PDF appears to be empty or an image-only scan."}), 422
 
-        # Extract metadata using Python logic (No Gemini)
-        metadata = extract_metadata_heuristics(full_text, filename)
+        # Extract metadata
+        metadata = extract_metadata_heuristics(full_text, file.filename)
         
-        # Prepare chunks (Max 48000 per cell for Google Sheets)
+        # Chunks for Google Sheets
         chunks = [full_text[i:i+48000] for i in range(0, len(full_text), 48000)][:5]
 
         return jsonify({
@@ -99,7 +103,10 @@ def extract():
             }
         })
     except Exception as e:
+        # Global error catcher to help debugging
+        import traceback
+        print(traceback.format_exc())
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run()
+    app.run(port=5000)
