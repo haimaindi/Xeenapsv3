@@ -85,6 +85,11 @@ export interface ExtractionResult {
   type?: LibraryType;
   category?: string;
   fileId?: string;
+  // Added fields to support metadata refinement and resolve type errors in LibraryForm
+  topic?: string;
+  subTopic?: string;
+  labels?: string[];
+  aiSnippet?: string;
 }
 
 export type ViewState = 'LIBRARY' | 'ADD_ITEM' | 'SETTINGS' | 'AI_CHAT';

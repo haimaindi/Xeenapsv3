@@ -1,7 +1,6 @@
 
 import { LibraryItem, GASResponse, ExtractionResult } from '../types';
 import { GAS_WEB_APP_URL } from '../constants';
-import { parseLibraryMetadata } from './geminiService';
 import Swal from 'sweetalert2';
 
 const Toast = Swal.mixin({
@@ -23,14 +22,40 @@ export const fetchLibrary = async (): Promise<LibraryItem[]> => {
 };
 
 /**
- * Hybrid Extraction:
- * 1. Python extracts raw text and chunks.
- * 2. Gemini parses the first few KB for perfect metadata.
- * 3. GAS handles the file storage.
+ * Memanggil AI melalui Proxy GAS (Tanpa mengekspos API Keys ke frontend)
  */
-export const uploadAndExtract = async (file: File): Promise<ExtractionResult | null> => {
+export const callAiProxy = async (provider: 'groq' | 'gemini', prompt: string, modelOverride?: string): Promise<string> => {
   try {
-    // Phase 1: Python PDF Text Extraction
+    const response = await fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        action: 'aiProxy', 
+        provider, 
+        prompt, 
+        modelOverride 
+      }),
+    });
+    const result = await response.json();
+    if (result.status === 'success') return result.data;
+    throw new Error(result.message || 'AI Proxy failed');
+  } catch (error) {
+    console.error(`AI Proxy Error (${provider}):`, error);
+    return '';
+  }
+};
+
+export const fetchAiConfig = async (): Promise<{ model: string }> => {
+  try {
+    const response = await fetch(`${GAS_WEB_APP_URL}?action=getAiConfig`);
+    const result: GASResponse<{ model: string }> = await response.json();
+    return result.data || { model: 'gemini-3-flash-preview' };
+  } catch (error) {
+    return { model: 'gemini-3-flash-preview' };
+  }
+};
+
+export const uploadAndStoreFile = async (file: File): Promise<ExtractionResult | null> => {
+  try {
     const formData = new FormData();
     formData.append('file', file);
     
@@ -44,18 +69,7 @@ export const uploadAndExtract = async (file: File): Promise<ExtractionResult | n
     if (pyResult.status !== 'success') throw new Error(pyResult.message);
     
     const rawData = pyResult.data;
-    const textSnippet = rawData.chunks[0] || ""; // Grab the first chunk for AI analysis
 
-    // Phase 2: AI Metadata Refinement (Using Gemini)
-    // We send a small snippet to Gemini for perfect parsing
-    let refinedMetadata = {};
-    try {
-      refinedMetadata = await parseLibraryMetadata(textSnippet);
-    } catch (aiErr) {
-      console.warn("AI Refinement failed, falling back to heuristics:", aiErr);
-    }
-
-    // Phase 3: Google Drive Upload via GAS
     const reader = new FileReader();
     const base64Promise = new Promise<string>((resolve) => {
       reader.onload = () => resolve((reader.result as string).split(',')[1]);
@@ -74,15 +88,14 @@ export const uploadAndExtract = async (file: File): Promise<ExtractionResult | n
     const gasResult = await gasResponse.json();
     const fileId = gasResult.status === 'success' ? gasResult.fileId : '';
 
-    // Merge results: AI results take priority over Python heuristics
     return {
       ...rawData,
-      ...refinedMetadata,
-      fileId
+      fileId,
+      aiSnippet: rawData.aiSnippet || (rawData.chunks?.[0] || "")
     } as ExtractionResult;
 
   } catch (error: any) {
-    console.error('Extraction Error:', error);
+    console.error('Storage Error:', error);
     throw error;
   }
 };

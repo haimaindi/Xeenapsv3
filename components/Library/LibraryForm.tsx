@@ -3,13 +3,15 @@ import React, { useState, useMemo } from 'react';
 // @ts-ignore
 import { useNavigate } from 'react-router-dom';
 import { SourceType, FileFormat, LibraryItem, LibraryType } from '../../types';
-import { saveLibraryItem, uploadAndExtract } from '../../services/gasService';
+import { saveLibraryItem, uploadAndStoreFile } from '../../services/gasService';
+import { extractMetadataWithAI } from '../../services/AddCollectionService';
 import { 
   CheckIcon, 
   LinkIcon, 
   DocumentIcon, 
   CloudArrowUpIcon, 
-  ArrowPathIcon
+  ArrowPathIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
 import { showXeenapsAlert } from '../../utils/swalUtils';
 import { 
@@ -28,7 +30,7 @@ interface LibraryFormProps {
 const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionStage, setExtractionStage] = useState<'IDLE' | 'READING' | 'AI_ANALYSIS'>('IDLE');
   const [file, setFile] = useState<File | null>(null);
   
   const [formData, setFormData] = useState({
@@ -72,35 +74,42 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       }
       setFile(selectedFile);
       
-      setIsExtracting(true);
+      // STAGE 1: File Storage & Text Extraction
+      setExtractionStage('READING');
       try {
-        const result = await uploadAndExtract(selectedFile);
-        if (result) {
-          // Robust auto-fill from Python Heuristics
+        const result = await uploadAndStoreFile(selectedFile);
+        
+        if (result && result.aiSnippet) {
+          // STAGE 2: AI Compound Analysis (AddCollectionService)
+          setExtractionStage('AI_ANALYSIS');
+          const aiMeta = await extractMetadataWithAI(result.aiSnippet);
+          
           setFormData(prev => ({
             ...prev,
-            title: result.title || prev.title,
-            year: result.year || prev.year,
-            publisher: result.publisher || prev.publisher,
-            authors: (result.authors && result.authors.length > 0) ? result.authors : prev.authors,
-            keywords: (result.keywords && result.keywords.length > 0) ? result.keywords : prev.keywords,
-            labels: (result.keywords && result.keywords.length > 0) ? result.keywords : prev.labels,
-            type: (result.type as LibraryType) || prev.type,
-            category: result.category || prev.category,
+            title: aiMeta.title || result.title || prev.title,
+            year: aiMeta.year || result.year || prev.year,
+            publisher: aiMeta.publisher || result.publisher || prev.publisher,
+            authors: (aiMeta.authors && aiMeta.authors.length > 0) ? aiMeta.authors : (result.authors || prev.authors),
+            keywords: (aiMeta.keywords && aiMeta.keywords.length > 0) ? aiMeta.keywords : (result.keywords || prev.keywords),
+            labels: (aiMeta.labels && aiMeta.labels.length > 0) ? aiMeta.labels : prev.labels,
+            type: (aiMeta.type as LibraryType) || (result.type as LibraryType) || prev.type,
+            category: aiMeta.category || result.category || prev.category,
+            topic: aiMeta.topic || prev.topic,
+            subTopic: aiMeta.subTopic || prev.subTopic,
             fileId: result.fileId || prev.fileId,
             chunks: result.chunks || []
           }));
         }
       } catch (err: any) {
-        console.error("Extraction failed:", err);
+        console.error("Extraction workflow failed:", err);
         showXeenapsAlert({
           icon: 'warning',
           title: 'Extraction Notice',
-          text: err.message || 'File uploaded, but metadata could not be fully extracted.',
+          text: 'File uploaded, but automatic metadata extraction failed.',
           confirmButtonText: 'OK'
         });
       } finally {
-        setIsExtracting(false);
+        setExtractionStage('IDLE');
       }
     }
   };
@@ -113,12 +122,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) {
-      showXeenapsAlert({
-        icon: 'error',
-        title: 'INCOMPLETE DATA',
-        text: 'Please fill in all required fields marked with (*) before proceeding.',
-        confirmButtonText: 'UNDERSTAND'
-      });
+      showXeenapsAlert({ icon: 'error', title: 'INCOMPLETE DATA', text: 'Please fill in all required fields.', confirmButtonText: 'OK' });
       return;
     }
 
@@ -158,6 +162,8 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
     }
     setIsSubmitting(false);
   };
+
+  const isExtracting = extractionStage !== 'IDLE';
 
   const HeaderSelector = (
     <div className="flex items-center justify-center md:justify-end bg-gray-100/50 p-1.5 rounded-2xl gap-1 shrink-0 w-full md:w-auto">
@@ -206,10 +212,19 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
               <FormField label="File Attachment" required error={!file}>
                 <label className={`relative flex flex-col items-center justify-center w-full h-40 bg-gray-50 border-2 border-dashed ${!file ? 'border-red-300' : 'border-gray-200'} rounded-[2rem] cursor-pointer hover:bg-gray-100 hover:border-[#004A74]/40 transition-all group outline-none focus:ring-2 focus:ring-[#004A74]/10 overflow-hidden`}>
                   {isExtracting ? (
-                    <div className="flex flex-col items-center animate-pulse">
-                      <ArrowPathIcon className="w-10 h-10 text-[#004A74] animate-spin mb-3" />
-                      <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">Extracting Data...</p>
-                      <p className="text-[10px] text-gray-400 mt-1">Python is processing your PDF text chunks</p>
+                    <div className="flex flex-col items-center">
+                      <div className="relative">
+                        <ArrowPathIcon className={`w-10 h-10 text-[#004A74] animate-spin mb-3 ${extractionStage === 'AI_ANALYSIS' ? 'opacity-20' : ''}`} />
+                        {extractionStage === 'AI_ANALYSIS' && (
+                          <SparklesIcon className="w-8 h-8 text-[#FED400] absolute top-1 left-1 animate-pulse" />
+                        )}
+                      </div>
+                      <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">
+                        {extractionStage === 'READING' ? 'Processing File...' : 'Compound Extraction...'}
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-tighter">
+                        Using dedicated extraction engine
+                      </p>
                     </div>
                   ) : (
                     <>
@@ -229,132 +244,54 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField label="Type" required error={!formData.type}>
-              <FormDropdown 
-                value={formData.type} 
-                onChange={(v) => setFormData({...formData, type: v as LibraryType})} 
-                options={Object.values(LibraryType)} 
-                placeholder="Select type..."
-                error={!formData.type}
-              />
+              <FormDropdown value={formData.type} onChange={(v) => setFormData({...formData, type: v as LibraryType})} options={Object.values(LibraryType)} placeholder="Select type..." error={!formData.type} />
             </FormField>
             <FormField label="Category" required error={!formData.category}>
-              <FormDropdown 
-                value={formData.category} 
-                onChange={(v) => setFormData({...formData, category: v})} 
-                options={['Original Research', 'Review']} 
-                placeholder="Select category..."
-                error={!formData.category}
-              />
+              <FormDropdown value={formData.category} onChange={(v) => setFormData({...formData, category: v})} options={['Original Research', 'Review', 'Case Study', 'Technical Report', 'Other']} placeholder="Select category..." error={!formData.category} />
             </FormField>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField label="Topic" required error={!formData.topic}>
-              <FormDropdown 
-                value={formData.topic} 
-                onChange={(v) => setFormData({...formData, topic: v})} 
-                options={existingValues.topics} 
-                placeholder="Topic..."
-                error={!formData.topic}
-              />
+              <FormDropdown value={formData.topic} onChange={(v) => setFormData({...formData, topic: v})} options={existingValues.topics} placeholder="Scientific topic..." error={!formData.topic} />
             </FormField>
             <FormField label="Sub Topic">
-              <FormDropdown 
-                value={formData.subTopic} 
-                onChange={(v) => setFormData({...formData, subTopic: v})} 
-                options={existingValues.subTopics} 
-                placeholder="Sub-topic..."
-              />
+              <FormDropdown value={formData.subTopic} onChange={(v) => setFormData({...formData, subTopic: v})} options={existingValues.subTopics} placeholder="Specific area..." />
             </FormField>
           </div>
 
           <FormField label="Title">
-            <input 
-              className={`w-full px-5 py-4 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#004A74]/10 outline-none border border-gray-200 focus:border-[#004A74] shadow-sm text-sm font-bold text-[#004A74] transition-all ${isExtracting ? 'opacity-50' : ''}`} 
-              placeholder="Enter document title..."
-              value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
-              disabled={isExtracting}
-            />
+            <input className={`w-full px-5 py-4 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#004A74]/10 outline-none border border-gray-200 focus:border-[#004A74] shadow-sm text-sm font-bold text-[#004A74] transition-all ${isExtracting ? 'opacity-50' : ''}`} placeholder="Enter title..." value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} disabled={isExtracting} />
           </FormField>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2">
               <FormField label="Author(s)">
-                <FormDropdown 
-                  isMulti 
-                  multiValues={formData.authors} 
-                  onAddMulti={(v) => setFormData({...formData, authors: [...formData.authors, v]})} 
-                  onRemoveMulti={(v) => setFormData({...formData, authors: formData.authors.filter(a => a !== v)})} 
-                  options={existingValues.allAuthors} 
-                  placeholder="Add authors..."
-                  value="" 
-                  onChange={() => {}} 
-                />
+                <FormDropdown isMulti multiValues={formData.authors} onAddMulti={(v) => setFormData({...formData, authors: [...formData.authors, v]})} onRemoveMulti={(v) => setFormData({...formData, authors: formData.authors.filter(a => a !== v)})} options={existingValues.allAuthors} placeholder="Authors..." value="" onChange={() => {}} />
               </FormField>
             </div>
             <FormField label="Year">
-              <input 
-                type="text"
-                className={`w-full px-5 py-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#004A74]/10 border border-gray-200 focus:border-[#004A74] text-sm font-mono font-bold transition-all ${isExtracting ? 'opacity-50' : ''}`} 
-                placeholder="YYYY"
-                value={formData.year}
-                onChange={(e) => setFormData({...formData, year: e.target.value.substring(0,4)})}
-                disabled={isExtracting}
-              />
+              <input type="text" className={`w-full px-5 py-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#004A74]/10 border border-gray-200 focus:border-[#004A74] text-sm font-mono font-bold transition-all ${isExtracting ? 'opacity-50' : ''}`} placeholder="YYYY" value={formData.year} onChange={(e) => setFormData({...formData, year: e.target.value.substring(0,4)})} disabled={isExtracting} />
             </FormField>
           </div>
 
           <FormField label="Publisher / Journal">
-            <FormDropdown 
-              value={formData.publisher} 
-              onChange={(v) => setFormData({...formData, publisher: v})} 
-              options={existingValues.publishers} 
-              placeholder="Journal or publisher..."
-            />
+            <FormDropdown value={formData.publisher} onChange={(v) => setFormData({...formData, publisher: v})} options={existingValues.publishers} placeholder="Journal name..." />
           </FormField>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField label="Keywords">
-              <FormDropdown 
-                isMulti 
-                multiValues={formData.keywords} 
-                onAddMulti={(v) => setFormData({...formData, keywords: [...formData.keywords, v]})} 
-                onRemoveMulti={(v) => setFormData({...formData, keywords: formData.keywords.filter(a => a !== v)})} 
-                options={existingValues.allKeywords} 
-                placeholder="Add keywords..."
-                value="" 
-                onChange={() => {}} 
-              />
+              <FormDropdown isMulti multiValues={formData.keywords} onAddMulti={(v) => setFormData({...formData, keywords: [...formData.keywords, v]})} onRemoveMulti={(v) => setFormData({...formData, keywords: formData.keywords.filter(a => a !== v)})} options={existingValues.allKeywords} placeholder="Keywords..." value="" onChange={() => {}} />
             </FormField>
             <FormField label="Labels">
-              <FormDropdown 
-                isMulti 
-                multiValues={formData.labels} 
-                onAddMulti={(v) => setFormData({...formData, labels: [...formData.labels, v]})} 
-                onRemoveMulti={(v) => setFormData({...formData, labels: formData.labels.filter(a => a !== v)})} 
-                options={existingValues.allLabels} 
-                placeholder="Add labels..."
-                value="" 
-                onChange={() => {}} 
-              />
+              <FormDropdown isMulti multiValues={formData.labels} onAddMulti={(v) => setFormData({...formData, labels: [...formData.labels, v]})} onRemoveMulti={(v) => setFormData({...formData, labels: formData.labels.filter(a => a !== v)})} options={existingValues.allLabels} placeholder="Thematic labels..." value="" onChange={() => {}} />
             </FormField>
           </div>
 
           <div className="pt-10 flex flex-col md:flex-row gap-4">
-            <button 
-              type="button" 
-              onClick={() => navigate('/')}
-              className="w-full md:px-10 py-5 bg-gray-100 text-gray-400 rounded-[1.5rem] font-black text-sm hover:bg-gray-200 transition-all uppercase tracking-widest active:scale-95"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit" 
-              disabled={isSubmitting || isExtracting}
-              className="w-full py-5 bg-[#004A74] text-white rounded-[1.5rem] font-black text-sm flex items-center justify-center gap-3 hover:shadow-2xl hover:bg-[#003859] transition-all disabled:opacity-50 transform active:scale-[0.98] tracking-widest uppercase"
-            >
-              {isSubmitting ? 'SYNCING...' : isExtracting ? 'EXTRACTING...' : <><CheckIcon className="w-5 h-5" /> Register Item</>}
+            <button type="button" onClick={() => navigate('/')} className="w-full md:px-10 py-5 bg-gray-100 text-gray-400 rounded-[1.5rem] font-black text-sm hover:bg-gray-200 transition-all uppercase tracking-widest active:scale-95">Cancel</button>
+            <button type="submit" disabled={isSubmitting || isExtracting} className="w-full py-5 bg-[#004A74] text-white rounded-[1.5rem] font-black text-sm flex items-center justify-center gap-3 hover:shadow-2xl hover:bg-[#003859] transition-all disabled:opacity-50 transform active:scale-[0.98] tracking-widest uppercase">
+              {isSubmitting ? 'SYNCING...' : isExtracting ? 'ANALYZING...' : <><CheckIcon className="w-5 h-5" /> Register Item</>}
             </button>
           </div>
         </form>
