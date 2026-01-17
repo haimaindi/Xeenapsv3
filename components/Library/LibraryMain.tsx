@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 // @ts-ignore - Resolving TS error for missing exported members
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -32,6 +33,7 @@ import {
   StandardQuickAccessBar, 
   StandardQuickActionButton, 
   StandardPrimaryButton, 
+  StandardPrimaryButton as AddButton,
   StandardFilterButton 
 } from '../Common/ButtonComponents';
 
@@ -58,7 +60,6 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [showSortMenu, setShowSortMenu] = useState(false);
 
-  // Update layout type on resize
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 1024);
     window.addEventListener('resize', handleResize);
@@ -88,7 +89,6 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
   const filteredAndSortedItems = useMemo(() => {
     let result = items.filter(item => {
       const query = effectiveSearch.toLowerCase();
-      
       const matchesSearch = !query || Object.values(item).some(val => {
         if (typeof val === 'string') return val.toLowerCase().includes(query);
         if (Array.isArray(val)) return val.some(v => typeof v === 'string' && v.toLowerCase().includes(query));
@@ -112,7 +112,6 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
       result = [...result].sort((a, b) => {
         const valA = (a[sortConfig.key as keyof LibraryItem] || '').toString().toLowerCase();
         const valB = (b[sortConfig.key as keyof LibraryItem] || '').toString().toLowerCase();
-        
         if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
         if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -163,7 +162,7 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
 
   const formatDate = (dateStr: string) => {
     try {
-      return new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      return new Date(dateStr).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
     } catch {
       return '-';
     }
@@ -208,12 +207,12 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
           value={localSearch} 
           onChange={setLocalSearch} 
         />
-        <StandardPrimaryButton 
+        <AddButton 
           onClick={() => navigate('/add')}
           icon={<PlusIcon className="w-5 h-5" />}
         >
           Add Collection
-        </StandardPrimaryButton>
+        </AddButton>
       </div>
 
       <div className="flex items-center justify-between lg:justify-start gap-4 shrink-0 relative z-[30]">
@@ -229,7 +228,6 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
           ))}
         </div>
         
-        {/* Mobile Sort Menu */}
         <div className="relative lg:hidden shrink-0">
           <button 
             onClick={() => setShowSortMenu(!showSortMenu)}
@@ -257,7 +255,6 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         </div>
       </div>
 
-      {/* Select All Toggle for Mobile */}
       {isMobile && paginatedItems.length > 0 && (
         <div className="flex items-center justify-between px-1">
           <button 
@@ -267,7 +264,7 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
             <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${selectedIds.length === paginatedItems.length ? 'bg-[#004A74] border-[#004A74] text-white' : 'bg-white border-gray-300'}`}>
               {selectedIds.length === paginatedItems.length && <CheckIcon className="w-3.5 h-3.5 stroke-[3]" />}
             </div>
-            {selectedIds.length === paginatedItems.length ? 'Deselect All' : 'Select All Halaman'}
+            {selectedIds.length === paginatedItems.length ? 'Deselect All' : 'Select Page'}
           </button>
         </div>
       )}
@@ -281,7 +278,6 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         <StandardQuickActionButton variant="warning" onClick={() => handleBatchAction('isFavorite')}><StarIcon className="w-5 h-5" /></StandardQuickActionButton>
       </StandardQuickAccessBar>
 
-      {/* DESKTOP TABLE VIEW */}
       <div className="hidden lg:flex flex-col flex-1 min-h-0 overflow-hidden">
         <StandardTableContainer>
           <StandardTableWrapper>
@@ -358,12 +354,11 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         </StandardTableContainer>
       </div>
 
-      {/* MOBILE CARD VIEW */}
       <div className="flex lg:hidden flex-col flex-1 min-h-0 space-y-3 overflow-y-auto custom-scrollbar pb-10">
         {paginatedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 bg-gray-50/50 rounded-[2rem] border border-dashed border-gray-200">
             <PlusIcon className="w-8 h-8 text-gray-300" />
-            <p className="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest">No Collection</p>
+            <p className="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest">No Collection Found</p>
           </div>
         ) : (
           paginatedItems.map((item) => (
@@ -411,7 +406,6 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
           ))
         )}
         
-        {/* Mobile Pagination Footer */}
         {totalPages > 1 && (
           <div className="pt-4 pb-6">
             <StandardTableFooter 

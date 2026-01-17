@@ -72,16 +72,16 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       }
       setFile(selectedFile);
       
-      // Auto-extraction trigger
       setIsExtracting(true);
       try {
         const result = await uploadAndExtract(selectedFile);
         if (result) {
+          // Robust auto-fill: prioritize extracted values if they are not null/undefined
           setFormData(prev => ({
             ...prev,
-            title: result.title || prev.title,
-            year: result.year || prev.year,
-            publisher: result.publisher || prev.publisher,
+            title: result.title !== undefined ? result.title : prev.title,
+            year: result.year !== undefined ? result.year : prev.year,
+            publisher: result.publisher !== undefined ? result.publisher : prev.publisher,
             authors: (result.authors && result.authors.length > 0) ? result.authors : prev.authors,
             keywords: (result.keywords && result.keywords.length > 0) ? result.keywords : prev.keywords,
             labels: (result.keywords && result.keywords.length > 0) ? result.keywords : prev.labels,
@@ -92,11 +92,11 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
           }));
         }
       } catch (err) {
-        console.error("Extraction failed", err);
+        console.error("Extraction failed:", err);
         showXeenapsAlert({
           icon: 'warning',
-          title: 'Extraction Partial Failure',
-          text: 'The file was uploaded but some metadata could not be extracted automatically.',
+          title: 'Extraction Notice',
+          text: 'File uploaded, but metadata could not be fully extracted.',
           confirmButtonText: 'OK'
         });
       } finally {
@@ -189,7 +189,6 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
 
       <FormContentArea>
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Source Section */}
           <div className="animate-in slide-in-from-top-4 duration-500">
             {formData.addMethod === 'LINK' ? (
               <FormField label="Reference URL" required error={!formData.url}>
@@ -228,7 +227,6 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
 
           <div className="h-px bg-gray-50" />
 
-          {/* Core Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField label="Type" required error={!formData.type}>
               <FormDropdown 

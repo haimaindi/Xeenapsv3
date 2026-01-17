@@ -65,7 +65,7 @@ export const uploadAndExtract = async (file: File): Promise<ExtractionResult | n
     if (result.status === 'success') {
       return result.data || null;
     }
-    throw new Error(result.message);
+    throw new Error(result.message || 'Unknown extraction error');
   } catch (error) {
     console.error('Extraction Error:', error);
     return null;
