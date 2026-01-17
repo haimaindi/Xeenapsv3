@@ -14,6 +14,7 @@ const Toast = Swal.mixin({
 export const fetchLibrary = async (): Promise<LibraryItem[]> => {
   try {
     const response = await fetch(`${GAS_WEB_APP_URL}?action=getLibrary`);
+    if (!response.ok) return [];
     const result: GASResponse<LibraryItem[]> = await response.json();
     return result.data || [];
   } catch (error) {
@@ -22,10 +23,13 @@ export const fetchLibrary = async (): Promise<LibraryItem[]> => {
 };
 
 /**
- * Memanggil AI melalui Proxy GAS (Tanpa mengekspos API Keys ke frontend)
+ * callAiProxy - Memanggil AI melalui Proxy GAS.
+ * Menangani error 0 index dengan pengecekan status eksplisit.
  */
 export const callAiProxy = async (provider: 'groq' | 'gemini', prompt: string, modelOverride?: string): Promise<string> => {
   try {
+    if (!GAS_WEB_APP_URL) throw new Error('GAS_WEB_APP_URL not configured');
+
     const response = await fetch(GAS_WEB_APP_URL, {
       method: 'POST',
       body: JSON.stringify({ 
@@ -35,15 +39,26 @@ export const callAiProxy = async (provider: 'groq' | 'gemini', prompt: string, m
         modelOverride 
       }),
     });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`GAS HTTP Error ${response.status}: ${errorText}`);
+    }
+    
     const result = await response.json();
-    if (result.status === 'success') return result.data;
-    throw new Error(result.message || 'AI Proxy failed');
-  } catch (error) {
-    console.error(`AI Proxy Error (${provider}):`, error);
+    
+    if (result && result.status === 'success' && result.data) {
+      return result.data;
+    }
+    
+    throw new Error(result?.message || 'AI Proxy failed to return data.');
+  } catch (error: any) {
+    console.error(`AI Proxy Error Details (${provider}):`, error);
     return '';
   }
 };
 
+// Fixed: Updated fallback model to gemini-3-flash-preview per task type recommendations
 export const fetchAiConfig = async (): Promise<{ model: string }> => {
   try {
     const response = await fetch(`${GAS_WEB_APP_URL}?action=getAiConfig`);

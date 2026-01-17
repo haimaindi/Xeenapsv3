@@ -27,6 +27,7 @@ interface LibraryFormProps {
   items: LibraryItem[];
 }
 
+// Fixed: Added React.FC type from React namespace
 const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,7 +48,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
     labels: [] as string[],
     url: '',
     fileId: '',
-    chunks: [] as string[]
+    chunks: [] as string[] // Menampung hasil ekstraksi Python secara utuh
   });
 
   const existingValues = useMemo(() => ({
@@ -59,6 +60,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
     allLabels: Array.from(new Set(items.flatMap(i => i.labels || []).filter(Boolean))),
   }), [items]);
 
+  // Fixed: Added React.ChangeEvent type from React namespace
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
@@ -71,9 +73,15 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       setExtractionStage('READING');
       try {
         const result = await uploadAndStoreFile(selectedFile);
-        if (result && result.aiSnippet) {
+        if (result) {
+          // 1. Simpan chunk utuh dari Python ke state agar nanti bisa disimpan ke database
+          const pythonChunks = result.chunks || [];
+          
           setExtractionStage('AI_ANALYSIS');
-          const aiMeta = await extractMetadataWithAI(result.aiSnippet);
+          
+          // 2. Gunakan AI untuk ekstraksi metadata (Hanya 1 Panggilan)
+          // AI snippet dibatasi 2500 karakter di dalam service
+          const aiMeta = await extractMetadataWithAI(result.aiSnippet || result.fullText || "");
           
           setFormData(prev => ({
             ...prev,
@@ -88,7 +96,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
             topic: aiMeta.topic || prev.topic,
             subTopic: aiMeta.subTopic || prev.subTopic,
             fileId: result.fileId || prev.fileId,
-            chunks: result.chunks || []
+            chunks: pythonChunks // Mempertahankan teks asli python
           }));
         }
       } catch (err: any) {
@@ -105,6 +113,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
     return hasSource && !!formData.type && !!formData.category && !!formData.topic;
   };
 
+  // Fixed: Added React.FormEvent type from React namespace
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) {
@@ -122,7 +131,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       category: formData.category,
       topic: formData.topic,
       subTopic: formData.subTopic,
-      author: formData.authors.join(', '), // Menggabungkan array penulis menjadi satu string dengan separator koma
+      author: formData.authors.join(', '),
       authors: formData.authors,
       publisher: formData.publisher,
       year: formData.year,
@@ -135,7 +144,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       labels: formData.labels,
       tags: [...formData.keywords, ...formData.labels],
       
-      // Kolom Akademik (Dibiarkan kosong saat registrasi awal)
+      // Kolom Akademik (Akan diisi nanti melalui proses deep insight)
       inTextCitation: '',
       bibCitation: '',
       researchMethodology: '',
@@ -148,7 +157,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       videoRecommendation: '',
       quickTipsForYou: '',
       
-      // Data Ekstraksi dari Python (10 Chunk)
+      // MENYIMPAN HASIL EKSTRAKSI PYTHON UTUH (10 CHUNK) KE DATABASE
       extractedInfo1: formData.chunks[0] || '',
       extractedInfo2: formData.chunks[1] || '',
       extractedInfo3: formData.chunks[2] || '',
@@ -201,7 +210,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                         {extractionStage === 'AI_ANALYSIS' && <SparklesIcon className="w-8 h-8 text-[#FED400] absolute top-1 left-1 animate-pulse" />}
                       </div>
                       <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">{extractionStage === 'READING' ? 'Processing File...' : 'Smart Metadata Scan...'}</p>
-                      <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-tighter">Identifying Title, Authors & Tags</p>
+                      <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-tighter">Fixing text spacing & identifying metadata</p>
                     </div>
                   ) : (
                     <>

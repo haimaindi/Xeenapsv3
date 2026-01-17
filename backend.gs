@@ -1,6 +1,6 @@
 
 /**
- * XEENAPS PKM - SECURE BACKEND V5 (AI PROXY EDITION)
+ * XEENAPS PKM - SECURE BACKEND V10 (DYNAMIC AI CONFIG EDITION)
  */
 
 const CONFIG = {
@@ -28,63 +28,97 @@ const CONFIG = {
 function doGet(e) {
   const action = e.parameter.action;
   if (action === 'getLibrary') return createJsonResponse({ status: 'success', data: getAllItems(CONFIG.SPREADSHEETS.LIBRARY, "Collections") });
-  if (action === 'getAiConfig') return createJsonResponse({ status: 'success', data: getAiConfig() });
+  if (action === 'getAiConfig') return createJsonResponse({ status: 'success', data: getProviderModel('GEMINI') });
   return createJsonResponse({ status: 'error', message: 'Invalid action' });
 }
 
 function doPost(e) {
-  const data = JSON.parse(e.postData.contents);
-  const action = data.action;
+  let body;
+  try {
+    body = JSON.parse(e.postData.contents);
+  } catch(e) {
+    return createJsonResponse({ status: 'error', message: 'Malformed JSON request' });
+  }
+  
+  const action = body.action;
   
   try {
     if (action === 'saveItem') {
-      saveToSheet(CONFIG.SPREADSHEETS.LIBRARY, "Collections", data.item);
+      saveToSheet(CONFIG.SPREADSHEETS.LIBRARY, "Collections", body.item);
       return createJsonResponse({ status: 'success' });
     }
     if (action === 'deleteItem') {
-      deleteFromSheet(CONFIG.SPREADSHEETS.LIBRARY, "Collections", data.id);
+      deleteFromSheet(CONFIG.SPREADSHEETS.LIBRARY, "Collections", body.id);
       return createJsonResponse({ status: 'success' });
     }
     if (action === 'uploadOnly') {
       const folder = DriveApp.getFolderById(CONFIG.FOLDERS.MAIN_LIBRARY);
-      const blob = Utilities.newBlob(Utilities.base64Decode(data.fileData), 'application/pdf', data.fileName);
+      const blob = Utilities.newBlob(Utilities.base64Decode(body.fileData), 'application/pdf', body.fileName);
       const file = folder.createFile(blob);
       return createJsonResponse({ status: 'success', fileId: file.getId() });
     }
     
     if (action === 'aiProxy') {
-      const { provider, prompt, modelOverride } = data;
-      return createJsonResponse(handleAiRequest(provider, prompt, modelOverride));
+      const { provider, prompt, modelOverride } = body;
+      const result = handleAiRequest(provider, prompt, modelOverride);
+      return createJsonResponse(result);
     }
 
-    return createJsonResponse({ status: 'error', message: 'Invalid action' });
+    return createJsonResponse({ status: 'error', message: 'Invalid action: ' + action });
   } catch (err) {
     return createJsonResponse({ status: 'error', message: err.toString() });
   }
 }
 
+/**
+ * Mencari model spesifik untuk provider dari Spreadsheet AI_CONFIG sheet AI
+ * Kolom A: Nama Provider (GEMINI, GROQ)
+ * Kolom B: Nama Model
+ */
+function getProviderModel(providerName) {
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEETS.AI_CONFIG);
+    const sheet = ss.getSheetByName('AI');
+    const data = sheet.getDataRange().getValues();
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] && data[i][0].toString().toUpperCase() === providerName.toUpperCase()) {
+        return { model: data[i][1] ? data[i][1].trim() : getDefaultModel(providerName) };
+      }
+    }
+  } catch (e) { console.error("Config fetch error:", e); }
+  return { model: getDefaultModel(providerName) };
+}
+
+function getDefaultModel(provider) {
+  return provider.toUpperCase() === 'GEMINI' ? 'gemini-3-flash-preview' : 'meta-llama/llama-4-scout-17b-16e-instruct';
+}
+
 function handleAiRequest(provider, prompt, modelOverride) {
   const keys = (provider === 'groq') ? getKeysFromSheet('Groq', 2) : getKeysFromSheet('ApiKeys', 1);
-  const config = getAiConfig();
-  const model = modelOverride || (provider === 'gemini' ? config.model : 'groq/compound');
+  if (!keys || keys.length === 0) return { status: 'error', message: 'No API keys found for ' + provider };
+  
+  // Mengambil model dari spreadsheet berdasarkan provider (GROQ atau GEMINI)
+  const config = getProviderModel(provider);
+  const model = modelOverride || config.model;
 
+  let lastError = '';
   for (let i = 0; i < keys.length; i++) {
     const apiKey = keys[i];
     try {
-      let response;
+      let responseText;
       if (provider === 'groq') {
-        response = callGroqApi(apiKey, model, prompt);
+        responseText = callGroqApi(apiKey, model, prompt);
       } else {
-        response = callGeminiApi(apiKey, model, prompt);
+        responseText = callGeminiApi(apiKey, model, prompt);
       }
       
-      if (response) return { status: 'success', data: response };
+      if (responseText) return { status: 'success', data: responseText };
     } catch (err) {
-      console.warn(`Key #${i+1} for ${provider} failed: ${err.toString()}`);
-      if (i === keys.length - 1) throw err;
+      lastError = err.toString();
     }
   }
-  return { status: 'error', message: 'All keys failed or limited' };
+  return { status: 'error', message: 'All API keys failed. Last error: ' + lastError };
 }
 
 function callGroqApi(apiKey, model, prompt) {
@@ -92,7 +126,7 @@ function callGroqApi(apiKey, model, prompt) {
   const payload = {
     model: model,
     messages: [
-      { role: "system", content: "You are an expert academic research assistant. Analyze documents deeply. Return ONLY strict JSON." },
+      { role: "system", content: "You are an expert academic research librarian. Always return valid raw JSON without conversational filler." },
       { role: "user", content: prompt }
     ],
     temperature: 0.1,
@@ -108,9 +142,22 @@ function callGroqApi(apiKey, model, prompt) {
   };
   
   const res = UrlFetchApp.fetch(url, options);
-  if (res.getResponseCode() === 429) return null;
-  const json = JSON.parse(res.getContentText());
-  return json.choices[0].message.content;
+  const responseText = res.getContentText();
+  let json;
+  try {
+    json = JSON.parse(responseText);
+  } catch (e) {
+    throw new Error('Groq API returned non-JSON response');
+  }
+  
+  if (res.getResponseCode() !== 200) {
+    throw new Error(json.error ? json.error.message : 'Groq API Error ' + res.getResponseCode());
+  }
+  
+  if (json && json.choices && json.choices[0] && json.choices[0].message) {
+    return json.choices[0].message.content;
+  }
+  throw new Error('Groq response format invalid');
 }
 
 function callGeminiApi(apiKey, model, prompt) {
@@ -127,29 +174,34 @@ function callGeminiApi(apiKey, model, prompt) {
   };
   
   const res = UrlFetchApp.fetch(url, options);
-  if (res.getResponseCode() === 429) return null;
-  const json = JSON.parse(res.getContentText());
-  return json.candidates[0].content.parts[0].text;
+  const responseText = res.getContentText();
+  let json;
+  try {
+    json = JSON.parse(responseText);
+  } catch (e) {
+    throw new Error('Gemini API returned non-JSON response');
+  }
+  
+  if (res.getResponseCode() !== 200) {
+    throw new Error(json.error ? json.error.message : 'Gemini API Error ' + res.getResponseCode());
+  }
+  
+  if (json && json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts[0]) {
+    return json.candidates[0].content.parts[0].text;
+  }
+  throw new Error('Gemini response format invalid');
 }
 
 function getKeysFromSheet(sheetName, colIndex) {
   try {
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEETS.KEYS);
     const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return [];
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return [];
     return sheet.getRange(2, colIndex, lastRow - 1, 1).getValues()
       .map(r => r[0]).filter(k => k && k.toString().trim() !== "");
   } catch (e) { return []; }
-}
-
-function getAiConfig() {
-  try {
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEETS.AI_CONFIG);
-    const sheet = ss.getSheetByName('AI');
-    const val = sheet.getRange("B1").getValue();
-    return { model: val ? val.trim() : 'gemini-3-flash-preview' };
-  } catch (e) { return { model: 'gemini-3-flash-preview' }; }
 }
 
 function getAllItems(ssId, sheetName) {

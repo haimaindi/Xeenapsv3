@@ -63,18 +63,17 @@ def extract():
         if not full_text.strip():
             return jsonify({"status": "error", "message": "Could not extract text."}), 422
 
-        # 1. Batasi total teks sesuai permintaan (200.000 karakter)
+        # 1. Batasi total teks (200.000 karakter)
         limit_total = 200000
         limited_text = full_text[:limit_total]
 
         # 2. Heuristik metadata tetap menggunakan teks awal
         metadata = extract_metadata_heuristics(limited_text, file.filename)
         
-        # 3. Snippet untuk AI (Groq/Gemini) terbatas 5k karakter sesuai permintaan baru
-        ai_snippet = limited_text[:5000]
+        # 3. Snippet untuk AI (Groq/Gemini) dikurangi ke 2500 karakter sesuai permintaan
+        ai_snippet = limited_text[:2500]
         
         # 4. Split teks ke dalam 10 chunks (masing-masing 20.000 karakter)
-        # Ini akan mengisi extractedInfo1 sampai extractedInfo10 secara merata
         chunk_size = 20000
         chunks = [limited_text[i:i+chunk_size] for i in range(0, len(limited_text), chunk_size)][:10]
 

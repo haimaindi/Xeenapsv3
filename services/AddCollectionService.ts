@@ -3,56 +3,87 @@ import { LibraryItem } from "../types";
 import { callAiProxy } from "./gasService";
 
 /**
- * AddCollectionService - Metadata Extraction Only.
- * Fokus pada akurasi identifikasi metadata dasar dari snippet teks (max 5000 chars).
+ * AddCollectionService - Metadata Extraction via Groq Proxy.
+ * Menggunakan model yang dikonfigurasi di spreadsheet (contoh: llama-4-scout).
  */
 export const extractMetadataWithAI = async (textSnippet: string): Promise<Partial<LibraryItem>> => {
   try {
-    const prompt = `ACT AS AN EXPERT ACADEMIC LIBRARIAN.
-    TASK: Extract fundamental metadata from the provided document text snippet.
+    // Membatasi snippet ke 2500 karakter untuk efisiensi token 2-arah (kirim & terima)
+    const truncatedSnippet = textSnippet.substring(0, 2500);
+
+    const prompt = `ACT AS AN EXPERT ACADEMIC LINGUISTIC RESEARCH LIBRARIAN.
     
-    GUIDELINES:
-    1. Title: Identify the full official title of the document.
-    2. Authors: Carefully identify ALL authors. Return them as a clean array of individual names. Ensure proper spacing between first and last names.
-    3. Year: Extract the publication year (YYYY).
-    4. Publisher: Identify the Journal name, University, or Publishing House.
-    5. Type: Select the most appropriate from ["Literature", "Task", "Personal", "Other"].
-    6. Category: Identify the document category (e.g., Original Research, Case Study, Handbook, Review).
-    7. Topic: Determine a broad scientific or professional topic.
-    8. Sub-Topic: Identify a specific area within that topic.
-    9. Keywords: Generate exactly 5-7 keywords. Each must be a single concept, properly formatted with spaces.
-    10. Labels: Generate 2-3 thematic labels.
+    TASK: Extract fundamental metadata from the provided PDF text snippet.
     
-    IMPORTANT: 
-    - Identify names accurately. Do not truncate.
-    - Return ONLY valid JSON.
-    - DO NOT include abstract, methodology, or citations in this stage.
+    CRITICAL INSTRUCTIONS:
+    1. TEXT RECONSTRUCTION (MISSING SPACES): 
+       - PDF extraction often loses spaces (e.g., 'EducationalTechnology' should be 'Educational Technology'). 
+       - You MUST logically separate words that are merged together.
+       - Apply this strictly to Titles, Publishers, and Author names.
     
+    2. INTELLIGENT CASING (PROPER VS UPPER):
+       - Use "Proper Case" (Title Case) for Title and Publisher.
+       - ALWAYS maintain FULL UPPERCASE for recognized organizations or technical terms (e.g., IEEE, UNESCO, SARS, COVID, NASA, WHO, ACM, MP4, DOI, AI, IoT, STEM, UN, etc.).
+       - If a title contains an acronym, keep it UPPERCASE (e.g., "Deep Learning for AI Systems" NOT "Deep Learning For Ai Systems").
+    
+    3. DATA INTEGRITY:
+       - Fill ALL fields in the schema. Do not leave empty strings. Use context to guess Topic and Category accurately.
+    
+    4. AUTHORS: Standardize to "Firstname Lastname". Return as an array of strings.
+    
+    5. FORMAT: Return ONLY valid RAW JSON. NO markdown blocks, NO conversational text.
+
     EXPECTED JSON SCHEMA:
     {
-      "title": "String",
-      "authors": ["Author Name 1", "Author Name 2"],
+      "title": "Full Reconstructed Title",
+      "authors": ["Full Name 1", "Full Name 2"],
       "year": "YYYY",
-      "publisher": "String",
+      "publisher": "Reconstructed Journal/Publisher Name",
       "type": "Literature",
-      "category": "String",
-      "topic": "String",
-      "subTopic": "String",
-      "keywords": ["tag1", "tag2"],
-      "labels": ["label1", "label2"]
+      "category": "e.g., Original Research",
+      "topic": "Broad Scientific Area",
+      "subTopic": "Specific Area",
+      "keywords": ["tag1", "tag2", "tag3", "tag4", "tag5"],
+      "labels": ["thematic1", "thematic2"]
+    }
+
+    TEXT SNIPPET TO ANALYZE:
+    ${truncatedSnippet}`;
+
+    // Memanggil Proxy GAS dengan provider 'groq'. 
+    // Backend akan otomatis mencari model "meta-llama/llama-4-scout-17b-16e-instruct" di spreadsheet.
+    const response = await callAiProxy('groq', prompt);
+    
+    if (!response) {
+      console.warn("Groq Proxy returned empty response.");
+      return {};
     }
     
-    TEXT SNIPPET:
-    ${textSnippet.substring(0, 5000)}`;
+    // Pembersihan sederhana jika AI masih memberikan markdown
+    let cleanJson = response.trim();
+    if (cleanJson.includes('{')) {
+      const start = cleanJson.indexOf('{');
+      const end = cleanJson.lastIndexOf('}');
+      if (start !== -1 && end !== -1) {
+        cleanJson = cleanJson.substring(start, end + 1);
+      }
+    }
 
-    const jsonResponse = await callAiProxy('groq', prompt);
-    
-    if (!jsonResponse) return {};
-    
-    const parsed = JSON.parse(jsonResponse);
-    return parsed;
+    try {
+      const parsed = JSON.parse(cleanJson);
+      
+      // Sanitasi tambahan pasca-ekstraksi
+      if (parsed.authors && Array.isArray(parsed.authors)) {
+        parsed.authors = parsed.authors.filter((a: any) => typeof a === 'string' && a.trim().length > 1);
+      }
+      
+      return parsed;
+    } catch (e) {
+      console.error('Failed to parse Groq JSON response:', e, 'Raw string:', cleanJson);
+      return {};
+    }
   } catch (error) {
-    console.error('Metadata Extraction Failed:', error);
+    console.error('Metadata Extraction via Groq Failed:', error);
     return {};
   }
 };
