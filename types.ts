@@ -28,7 +28,7 @@ export interface LibraryItem {
   createdAt: string;
   updatedAt: string;
   
-  // Basic & Display Fields
+  // Basic Fields
   title: string;
   type: LibraryType;
   category: string;
@@ -51,9 +51,15 @@ export interface LibraryItem {
   labels: string[];
   tags: string[];
   
-  // Academic & Deep Insights (NEW)
-  inTextCitation?: string;       // APA 7, Harvard, Chicago
-  bibCitation?: string;          // APA 7, Harvard, Chicago
+  // Multi-Style Citations
+  inTextAPA?: string;
+  inTextHarvard?: string;
+  inTextChicago?: string;
+  bibAPA?: string;
+  bibHarvard?: string;
+  bibChicago?: string;
+  
+  // Deep Insights
   researchMethodology?: string;
   abstract?: string;
   summary?: string;
@@ -64,8 +70,7 @@ export interface LibraryItem {
   videoRecommendation?: string;  // YouTube Embed ID
   quickTipsForYou?: string;      // Narrative Paragraph
   
-  // Large Data Handling
-  content?: string;
+  // Large Data Handling (Chunks)
   extractedInfo1?: string;
   extractedInfo2?: string;
   extractedInfo3?: string;
@@ -77,7 +82,6 @@ export interface LibraryItem {
   extractedInfo9?: string;
   extractedInfo10?: string;
   
-  // UI States
   isFavorite?: boolean;
   isBookmarked?: boolean;
 }

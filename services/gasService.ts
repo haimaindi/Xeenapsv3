@@ -11,6 +11,21 @@ const Toast = Swal.mixin({
   timerProgressBar: true,
 });
 
+/**
+ * Memicu setup database di Google Sheets (membuat sheet & header).
+ */
+export const initializeDatabase = async (): Promise<{ status: string; message: string }> => {
+  try {
+    const response = await fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'setupDatabase' }),
+    });
+    return await response.json();
+  } catch (error: any) {
+    return { status: 'error', message: error.toString() };
+  }
+};
+
 export const fetchLibrary = async (): Promise<LibraryItem[]> => {
   try {
     const response = await fetch(`${GAS_WEB_APP_URL}?action=getLibrary`);
@@ -22,10 +37,6 @@ export const fetchLibrary = async (): Promise<LibraryItem[]> => {
   }
 };
 
-/**
- * callAiProxy - Memanggil AI melalui Proxy GAS.
- * Menangani error 0 index dengan pengecekan status eksplisit.
- */
 export const callAiProxy = async (provider: 'groq' | 'gemini', prompt: string, modelOverride?: string): Promise<string> => {
   try {
     if (!GAS_WEB_APP_URL) throw new Error('GAS_WEB_APP_URL not configured');
@@ -58,7 +69,6 @@ export const callAiProxy = async (provider: 'groq' | 'gemini', prompt: string, m
   }
 };
 
-// Fixed: Updated fallback model to gemini-3-flash-preview per task type recommendations
 export const fetchAiConfig = async (): Promise<{ model: string }> => {
   try {
     const response = await fetch(`${GAS_WEB_APP_URL}?action=getAiConfig`);

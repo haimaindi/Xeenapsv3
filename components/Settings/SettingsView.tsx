@@ -1,18 +1,22 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Cog6ToothIcon, 
   TableCellsIcon, 
   CloudArrowUpIcon,
   ShieldCheckIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  SparklesIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { GAS_WEB_APP_URL } from '../../constants';
+import { initializeDatabase } from '../../services/gasService';
+import { showXeenapsAlert } from '../../utils/swalUtils';
 
 const SettingsView: React.FC = () => {
   const isConfigured = !!GAS_WEB_APP_URL;
+  const [isInitializing, setIsInitializing] = useState(false);
 
-  // IDs dari backend.gs Anda
   const SPREADSHEET_IDS = {
     LIBRARY: '1wPTMx6yrv2iv0lejpNdClmC162aD3iekzSWP5EPNm0I',
     KEYS: '1QRzqKe42ck2HhkA-_yAGS-UHppp96go3s5oJmlrwpc0'
@@ -22,7 +26,31 @@ const SettingsView: React.FC = () => {
     window.open(`https://docs.google.com/spreadsheets/d/${id}`, '_blank');
   };
 
-  // Fix: Removed API key management UI as keys are handled externally and must not be managed within the app.
+  const handleInitDatabase = async () => {
+    setIsInitializing(true);
+    try {
+      const result = await initializeDatabase();
+      if (result.status === 'success') {
+        showXeenapsAlert({
+          icon: 'success',
+          title: 'DATABASE READY',
+          text: 'The "Collections" sheet has been created with all 40+ required columns. You can start adding items now.',
+          confirmButtonText: 'GREAT'
+        });
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (err: any) {
+      showXeenapsAlert({
+        icon: 'error',
+        title: 'SETUP FAILED',
+        text: err.message || 'Could not initialize database. Check your GAS connection.',
+        confirmButtonText: 'OK'
+      });
+    } finally {
+      setIsInitializing(false);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-700">
@@ -37,14 +65,39 @@ const SettingsView: React.FC = () => {
           </div>
         </div>
 
+        {/* Database Auto-Setup Section */}
+        <div className="mb-10 p-8 bg-gradient-to-br from-[#004A74] to-[#003859] rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group">
+          <SparklesIcon className="absolute -right-10 -top-10 w-40 h-40 text-white/5 group-hover:rotate-12 transition-transform duration-1000" />
+          <div className="relative z-10">
+            <h3 className="text-xl font-black mb-2 flex items-center gap-2">
+              <TableCellsIcon className="w-6 h-6 text-[#FED400]" />
+              Database Auto-Setup
+            </h3>
+            <p className="text-white/70 text-sm mb-6 max-w-md">
+              Automatically create the "Collections" sheet and all required academic citation columns (APA, Harvard, Chicago) in your Google Sheets.
+            </p>
+            <button 
+              onClick={handleInitDatabase}
+              disabled={isInitializing || !isConfigured}
+              className="px-8 py-4 bg-[#FED400] text-[#004A74] rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-3 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+            >
+              {isInitializing ? (
+                <ArrowPathIcon className="w-5 h-5 animate-spin" />
+              ) : (
+                <SparklesIcon className="w-5 h-5" />
+              )}
+              {isInitializing ? 'Initializing...' : 'Initialize Database Structure'}
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-          {/* Status Card */}
           <div className={`p-6 rounded-3xl border ${isConfigured ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100'} transition-all`}>
             <div className="flex items-center gap-3 mb-4">
               {isConfigured ? (
                 <ShieldCheckIcon className="w-6 h-6 text-green-600" />
               ) : (
-                <ExclamationCircleIcon className="w-6 h-6 text-red-600" />
+                <ExclamationCircleIcon className="w-6 h-6 text-red-700" />
               )}
               <h3 className={`font-bold ${isConfigured ? 'text-green-700' : 'text-red-700'}`}>Connection Status</h3>
             </div>
@@ -55,7 +108,6 @@ const SettingsView: React.FC = () => {
             </p>
           </div>
 
-          {/* AI Info Card */}
           <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
             <div className="flex items-center gap-3 mb-4">
               <CloudArrowUpIcon className="w-6 h-6 text-[#004A74]" />
@@ -68,13 +120,10 @@ const SettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Note: AI Key Management Form has been removed per guidelines. Keys are managed via window.aistudio.openSelectKey() */}
-
-        {/* Database Management */}
         <div>
           <h3 className="text-xl font-black text-[#004A74] mb-6 flex items-center gap-2">
             <TableCellsIcon className="w-6 h-6" />
-            Database Management
+            Manual Database Access
           </h3>
           
           <div className="space-y-4">
