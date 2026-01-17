@@ -4,7 +4,8 @@ import { callAiProxy } from "./gasService";
 
 /**
  * AddCollectionService - Metadata Extraction via AI Proxy.
- * Optimized for COMPLETE and ROBUST academic citations across 3 styles.
+ * FOCUS: Basic metadata and robust academic citations ONLY.
+ * EXCLUDE: Deep insights (abstract, summary, methodology, etc.)
  */
 export const extractMetadataWithAI = async (textSnippet: string): Promise<Partial<LibraryItem>> => {
   try {
@@ -13,14 +14,18 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
     const prompt = `ACT AS AN EXPERT SENIOR ACADEMIC LIBRARIAN. 
     EXTRACT DATA FROM THE PROVIDED PDF TEXT AND RETURN IN RAW JSON FORMAT ONLY.
 
-    CRITICAL INSTRUCTION FOR ROBUSTNESS (NON-NEGOTIABLE):
+    SCOPE LIMITATION (CRITICAL):
+    - DO NOT analyze or extract: researchMethodology, abstract, summary, strength, weakness, unfamiliarTerminology, supportingReferences, videoRecommendation, quickTipsForYou.
+    - ONLY extract the fields defined in the JSON schema below.
+
+    CRITICAL INSTRUCTION FOR ROBUSTNESS:
     1. COMPLETE FIELDS (DO NOT SHORTEN/TRUNCATE):
-       - "title": Must be the full, official academic title.
-       - "authors": Must be a list of all full names found.
-       - "publisher": Must be the full journal or publisher name.
-       - "bibAPA", "bibHarvard", "bibChicago": These MUST be complete bibliographic entries. Include full titles, full journal names, volume, issue, page ranges, and DOI/URL. NEVER use "..." or "et al." unless the source has too many authors to list. NEVER summarize the title within the citation.
+       - "title": Full, official academic title.
+       - "authors": List of all full names found.
+       - "publisher": Full journal or publisher name.
+       - "bibAPA", "bibHarvard", "bibChicago": COMPLETE bibliographic entries. Include full titles, full journal names, volume, issue, page ranges, and DOI/URL. NEVER use "..." or summarize the title.
     
-    2. CONCISE FIELDS (STRICT LIMITS):
+    2. CONCISE FIELDS:
        - "topic": Exactly 2 words describing the main field.
        - "subTopic": Exactly 2 words describing the specific niche.
 
@@ -28,9 +33,6 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
        - inTextAPA: (Author, Year)
        - inTextHarvard: (Author, Year)
        - inTextChicago: (Author Year)
-
-    DATA MAPPING RULES:
-    - TYPE: Leave this field out of the JSON.
 
     EXPECTED JSON SCHEMA:
     {
@@ -46,9 +48,9 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
       "inTextAPA": "...",
       "inTextHarvard": "...",
       "inTextChicago": "...",
-      "bibAPA": "STRICTLY COMPLETE APA ENTRY",
-      "bibHarvard": "STRICTLY COMPLETE HARVARD ENTRY",
-      "bibChicago": "STRICTLY COMPLETE CHICAGO ENTRY",
+      "bibAPA": "COMPLETE APA 7th Edition Bibliographic Entry",
+      "bibHarvard": "COMPLETE Harvard Style Bibliographic Entry",
+      "bibChicago": "COMPLETE Chicago Author-Date Bibliographic Entry"
     }
 
     TEXT SNIPPET TO ANALYZE:
@@ -66,7 +68,7 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
 
     try {
       const parsed = JSON.parse(cleanJson);
-      // Ensure we don't return anything that might overwrite manually filled fields with empty strings
+      // Filter out empty values
       return Object.fromEntries(Object.entries(parsed).filter(([_, v]) => v != null && v !== ""));
     } catch (e) {
       console.error('JSON Parse Error:', e);
