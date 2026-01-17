@@ -1,13 +1,15 @@
+
 import React, { useState, useMemo } from 'react';
 // @ts-ignore
 import { useNavigate } from 'react-router-dom';
 import { SourceType, FileFormat, LibraryItem, LibraryType } from '../../types';
-import { saveLibraryItem } from '../../services/gasService';
+import { saveLibraryItem, uploadAndExtract } from '../../services/gasService';
 import { 
   CheckIcon, 
   LinkIcon, 
   DocumentIcon, 
-  CloudArrowUpIcon
+  CloudArrowUpIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { showXeenapsAlert } from '../../utils/swalUtils';
 import { 
@@ -26,6 +28,7 @@ interface LibraryFormProps {
 const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   
   const [formData, setFormData] = useState({
@@ -40,7 +43,8 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
     year: '',
     keywords: [] as string[],
     labels: [] as string[],
-    url: ''
+    url: '',
+    chunks: [] as string[]
   });
 
   const existingValues = useMemo(() => ({
@@ -52,20 +56,34 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
     allLabels: Array.from(new Set(items.flatMap(i => i.labels || []).filter(Boolean))),
   }), [items]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       if (selectedFile.size > 19.9 * 1024 * 1024) {
         showXeenapsAlert({
           icon: 'error',
-          title: 'File Too Large',
-          text: 'Maximum file size is 19.9MB.',
+          title: 'File Terlalu Besar',
+          text: 'Ukuran maksimum file adalah 19.9MB.',
           confirmButtonText: 'OK'
         });
         e.target.value = '';
         return;
       }
       setFile(selectedFile);
+      
+      // Auto-extraction trigger
+      setIsExtracting(true);
+      const result = await uploadAndExtract(selectedFile);
+      if (result) {
+        setFormData(prev => ({
+          ...prev,
+          title: result.title || prev.title,
+          year: result.year || prev.year,
+          publisher: result.publisher || prev.publisher,
+          chunks: result.chunks || []
+        }));
+      }
+      setIsExtracting(false);
     }
   };
 
@@ -79,9 +97,9 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
     if (!validate()) {
       showXeenapsAlert({
         icon: 'error',
-        title: 'INCOMPLETE DATA',
-        text: 'Please fill in all mandatory fields marked with (*) before proceeding.',
-        confirmButtonText: 'UNDERSTOOD'
+        title: 'DATA BELUM LENGKAP',
+        text: 'Mohon isi semua field wajib bertanda (*) sebelum melanjutkan.',
+        confirmButtonText: 'MENGERTI'
       });
       return;
     }
@@ -107,6 +125,11 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       keywords: formData.keywords,
       labels: formData.labels,
       tags: [...formData.keywords, ...formData.labels],
+      extractedInfo1: formData.chunks[0] || '',
+      extractedInfo2: formData.chunks[1] || '',
+      extractedInfo3: formData.chunks[2] || '',
+      extractedInfo4: formData.chunks[3] || '',
+      extractedInfo5: formData.chunks[4] || '',
     };
 
     const success = await saveLibraryItem(newItem);
@@ -139,8 +162,8 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
   return (
     <FormPageContainer>
       <FormStickyHeader 
-        title="Add Collection" 
-        subtitle="Expand your digital library" 
+        title="Tambah Koleksi" 
+        subtitle="Perluas perpustakaan digital Anda" 
         onBack={() => navigate('/')} 
         rightElement={HeaderSelector}
       />
@@ -150,25 +173,35 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
           {/* Source Section */}
           <div className="animate-in slide-in-from-top-4 duration-500">
             {formData.addMethod === 'LINK' ? (
-              <FormField label="Reference URL" required error={!formData.url}>
+              <FormField label="URL Referensi" required error={!formData.url}>
                 <div className="relative group">
                   <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300 group-focus-within:text-[#004A74] transition-colors" />
                   <input 
                     className={`w-full pl-12 pr-4 py-4 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#004A74]/10 focus:border-[#004A74] outline-none border ${!formData.url ? 'border-red-300' : 'border-gray-200'} shadow-sm text-sm font-medium transition-all`} 
-                    placeholder="Paste research link, PDF URL, or webpage here..."
+                    placeholder="Tempel link riset, URL PDF, atau halaman web di sini..."
                     value={formData.url}
                     onChange={(e) => setFormData({...formData, url: e.target.value})}
                   />
                 </div>
               </FormField>
             ) : (
-              <FormField label="File Attachment" required error={!file}>
-                <label className={`flex flex-col items-center justify-center w-full h-32 bg-gray-50 border-2 border-dashed ${!file ? 'border-red-300' : 'border-gray-200'} rounded-[2rem] cursor-pointer hover:bg-gray-100 hover:border-[#004A74]/40 transition-all group outline-none focus:ring-2 focus:ring-[#004A74]/10`}>
-                  <CloudArrowUpIcon className={`w-8 h-8 ${!file ? 'text-red-300' : 'text-gray-300'} group-hover:text-[#004A74] mb-2 transition-colors`} />
-                  <p className="text-sm text-gray-500 group-hover:text-[#004A74] px-6 text-center">
-                    {file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Drop file or click to browse (Max 19.9Mb)"}
-                  </p>
-                  <input type="file" className="hidden" onChange={handleFileChange} />
+              <FormField label="Lampiran File" required error={!file}>
+                <label className={`relative flex flex-col items-center justify-center w-full h-40 bg-gray-50 border-2 border-dashed ${!file ? 'border-red-300' : 'border-gray-200'} rounded-[2rem] cursor-pointer hover:bg-gray-100 hover:border-[#004A74]/40 transition-all group outline-none focus:ring-2 focus:ring-[#004A74]/10 overflow-hidden`}>
+                  {isExtracting ? (
+                    <div className="flex flex-col items-center animate-pulse">
+                      <ArrowPathIcon className="w-10 h-10 text-[#004A74] animate-spin mb-3" />
+                      <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">Mengekstrak Metadata...</p>
+                      <p className="text-[10px] text-gray-400 mt-1">Google Drive OCR sedang memproses PDF Anda</p>
+                    </div>
+                  ) : (
+                    <>
+                      <CloudArrowUpIcon className={`w-8 h-8 ${!file ? 'text-red-300' : 'text-gray-300'} group-hover:text-[#004A74] mb-2 transition-colors`} />
+                      <p className="text-sm text-gray-500 group-hover:text-[#004A74] px-6 text-center">
+                        {file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Klik atau seret file PDF di sini (Maks 19.9Mb)"}
+                      </p>
+                    </>
+                  )}
+                  <input type="file" className="hidden" onChange={handleFileChange} accept=".pdf" disabled={isExtracting} />
                 </label>
               </FormField>
             )}
@@ -183,7 +216,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                 value={formData.type} 
                 onChange={(v) => setFormData({...formData, type: v as LibraryType})} 
                 options={Object.values(LibraryType)} 
-                placeholder="Select type..."
+                placeholder="Pilih tipe..."
                 error={!formData.type}
               />
             </FormField>
@@ -192,7 +225,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                 value={formData.category} 
                 onChange={(v) => setFormData({...formData, category: v})} 
                 options={['Original Research', 'Review']} 
-                placeholder="Select category..."
+                placeholder="Pilih kategori..."
                 error={!formData.category}
               />
             </FormField>
@@ -204,7 +237,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                 value={formData.topic} 
                 onChange={(v) => setFormData({...formData, topic: v})} 
                 options={existingValues.topics} 
-                placeholder="Topic..."
+                placeholder="Topik..."
                 error={!formData.topic}
               />
             </FormField>
@@ -213,76 +246,78 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                 value={formData.subTopic} 
                 onChange={(v) => setFormData({...formData, subTopic: v})} 
                 options={existingValues.subTopics} 
-                placeholder="Sub-topic..."
+                placeholder="Sub-topik..."
               />
             </FormField>
           </div>
 
-          <FormField label="Title">
+          <FormField label="Judul">
             <input 
-              className="w-full px-5 py-4 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#004A74]/10 outline-none border border-gray-200 focus:border-[#004A74] shadow-sm text-sm font-bold text-[#004A74] transition-all" 
-              placeholder="Enter document title..."
+              className={`w-full px-5 py-4 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#004A74]/10 outline-none border border-gray-200 focus:border-[#004A74] shadow-sm text-sm font-bold text-[#004A74] transition-all ${isExtracting ? 'opacity-50' : ''}`} 
+              placeholder="Masukkan judul dokumen..."
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
+              disabled={isExtracting}
             />
           </FormField>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2">
-              <FormField label="Author(s)">
+              <FormField label="Penulis (Author)">
                 <FormDropdown 
                   isMulti 
                   multiValues={formData.authors} 
                   onAddMulti={(v) => setFormData({...formData, authors: [...formData.authors, v]})} 
                   onRemoveMulti={(v) => setFormData({...formData, authors: formData.authors.filter(a => a !== v)})} 
                   options={existingValues.allAuthors} 
-                  placeholder="Add authors..."
+                  placeholder="Tambah penulis..."
                   value="" 
                   onChange={() => {}} 
                 />
               </FormField>
             </div>
-            <FormField label="Year">
+            <FormField label="Tahun">
               <input 
                 type="number"
-                className="w-full px-5 py-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#004A74]/10 border border-gray-200 focus:border-[#004A74] text-sm font-mono font-bold transition-all" 
+                className={`w-full px-5 py-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#004A74]/10 border border-gray-200 focus:border-[#004A74] text-sm font-mono font-bold transition-all ${isExtracting ? 'opacity-50' : ''}`} 
                 placeholder="YYYY"
                 value={formData.year}
                 onChange={(e) => setFormData({...formData, year: e.target.value.substring(0,4)})}
+                disabled={isExtracting}
               />
             </FormField>
           </div>
 
-          <FormField label="Publisher">
+          <FormField label="Penerbit / Jurnal">
             <FormDropdown 
               value={formData.publisher} 
               onChange={(v) => setFormData({...formData, publisher: v})} 
               options={existingValues.publishers} 
-              placeholder="Journal or publisher..."
+              placeholder="Jurnal atau penerbit..."
             />
           </FormField>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField label="Keyword(s)">
+            <FormField label="Kata Kunci (Keywords)">
               <FormDropdown 
                 isMulti 
                 multiValues={formData.keywords} 
                 onAddMulti={(v) => setFormData({...formData, keywords: [...formData.keywords, v]})} 
                 onRemoveMulti={(v) => setFormData({...formData, keywords: formData.keywords.filter(a => a !== v)})} 
                 options={existingValues.allKeywords} 
-                placeholder="Add keywords..."
+                placeholder="Tambah kata kunci..."
                 value="" 
                 onChange={() => {}} 
               />
             </FormField>
-            <FormField label="Label(s)">
+            <FormField label="Label">
               <FormDropdown 
                 isMulti 
                 multiValues={formData.labels} 
                 onAddMulti={(v) => setFormData({...formData, labels: [...formData.labels, v]})} 
                 onRemoveMulti={(v) => setFormData({...formData, labels: formData.labels.filter(a => a !== v)})} 
                 options={existingValues.allLabels} 
-                placeholder="Add labels..."
+                placeholder="Tambah label..."
                 value="" 
                 onChange={() => {}} 
               />
@@ -295,14 +330,14 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
               onClick={() => navigate('/')}
               className="w-full md:px-10 py-5 bg-gray-100 text-gray-400 rounded-[1.5rem] font-black text-sm hover:bg-gray-200 transition-all uppercase tracking-widest active:scale-95"
             >
-              Cancel
+              Batal
             </button>
             <button 
               type="submit" 
-              disabled={isSubmitting}
+              disabled={isSubmitting || isExtracting}
               className="w-full py-5 bg-[#004A74] text-white rounded-[1.5rem] font-black text-sm flex items-center justify-center gap-3 hover:shadow-2xl hover:bg-[#003859] transition-all disabled:opacity-50 transform active:scale-[0.98] tracking-widest uppercase"
             >
-              {isSubmitting ? 'SINKRONISASI...' : <><CheckIcon className="w-5 h-5" /> Register Item</>}
+              {isSubmitting ? 'SINKRONISASI...' : isExtracting ? 'MENGEKSTRAK...' : <><CheckIcon className="w-5 h-5" /> Register Item</>}
             </button>
           </div>
         </form>

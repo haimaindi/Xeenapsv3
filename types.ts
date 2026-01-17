@@ -44,6 +44,7 @@ export interface LibraryItem {
   source: SourceType;
   format: FileFormat;
   url?: string;
+  fileId?: string; // Drive file ID
   
   // Tags & Labels
   keywords: string[];
@@ -54,19 +55,13 @@ export interface LibraryItem {
   inTextCitation?: string;
   bibCitation?: string;
   
-  // Deep Research Metadata
-  methodology?: string;
-  abstract?: string;
-  summary?: string;
-  strengths?: string[];
-  weaknesses?: string[];
-  unfamiliarTerms?: string[];
-  supportingReferences?: string[];
-  tipsForYou?: string;
-  
   // Large Data Handling
   content?: string;
-  extractedInfoChunks?: string[]; // For handling 50k char limit in Spreadsheet cells
+  extractedInfo1?: string;
+  extractedInfo2?: string;
+  extractedInfo3?: string;
+  extractedInfo4?: string;
+  extractedInfo5?: string;
   
   // UI States
   isFavorite?: boolean;
@@ -77,6 +72,16 @@ export interface GASResponse<T> {
   status: 'success' | 'error';
   data?: T;
   message?: string;
+}
+
+export interface ExtractionResult {
+  title?: string;
+  authors?: string[];
+  publisher?: string;
+  year?: string;
+  keywords?: string[];
+  fullText?: string;
+  chunks?: string[];
 }
 
 export type ViewState = 'LIBRARY' | 'ADD_ITEM' | 'SETTINGS' | 'AI_CHAT';

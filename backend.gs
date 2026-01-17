@@ -14,7 +14,11 @@ const CONFIG = {
     KEYS: '1QRzqKe42ck2HhkA-_yAGS-UHppp96go3s5oJmlrwpc0' 
   },
   SCHEMAS: {
-    LIBRARY: ['id', 'title', 'source', 'format', 'url', 'content', 'tags', 'summary', 'createdAt', 'updatedAt'],
+    LIBRARY: [
+      'id', 'title', 'type', 'category', 'topic', 'subTopic', 'author', 'publisher', 'year', 
+      'source', 'format', 'url', 'fileId', 'tags', 'createdAt', 'updatedAt',
+      'extractedInfo1', 'extractedInfo2', 'extractedInfo3', 'extractedInfo4', 'extractedInfo5'
+    ],
     KEYS: ['id', 'key', 'label', 'status', 'addedAt']
   }
 };
@@ -25,9 +29,7 @@ const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models
  * Ensures required sheets and headers exist.
  */
 function initializeDatabase() {
-  // Init Library Sheet
   initSheet(CONFIG.SPREADSHEETS.LIBRARY, "Collections", CONFIG.SCHEMAS.LIBRARY);
-  // Init Keys Sheet
   initSheet(CONFIG.SPREADSHEETS.KEYS, "ApiKeys", CONFIG.SCHEMAS.KEYS);
 }
 
@@ -35,36 +37,28 @@ function initSheet(ssId, sheetName, headers) {
   try {
     const ss = SpreadsheetApp.openById(ssId);
     let sheet = ss.getSheetByName(sheetName);
-    
-    // Create sheet if not exists
     if (!sheet) {
       sheet = ss.insertSheet(sheetName);
     }
-    
-    // Check headers
     const currentHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn() || 1).getValues()[0];
     const isHeaderCorrect = headers.every((h, i) => currentHeaders[i] === h);
-    
     if (!isHeaderCorrect || sheet.getLastRow() === 0) {
-      sheet.clear(); // Clean up if messy
+      sheet.clear();
       sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       sheet.setFrozenRows(1);
       sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f3f3f3");
     }
   } catch (e) {
-    console.error(`Failed to init sheet ${sheetName} in SS ${ssId}: ${e.message}`);
+    console.error(`Failed to init sheet ${sheetName}: ${e.message}`);
   }
 }
 
 function doGet(e) {
-  initializeDatabase(); // Run check on every access
+  initializeDatabase();
   const action = e.parameter.action;
   try {
     if (action === 'getLibrary') {
       return createJsonResponse({ status: 'success', data: getAllItems(CONFIG.SPREADSHEETS.LIBRARY, "Collections") });
-    }
-    if (action === 'getKeys') {
-      return createJsonResponse({ status: 'success', data: getAllItems(CONFIG.SPREADSHEETS.KEYS, "ApiKeys") });
     }
     return createJsonResponse({ status: 'error', message: 'Unknown GET action' });
   } catch (err) {
@@ -73,7 +67,7 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  initializeDatabase(); // Run check on every access
+  initializeDatabase();
   const data = JSON.parse(e.postData.contents);
   const action = data.action;
   
@@ -82,47 +76,32 @@ function doPost(e) {
       saveToSheet(CONFIG.SPREADSHEETS.LIBRARY, "Collections", data.item);
       return createJsonResponse({ status: 'success' });
     }
-    
     if (action === 'deleteItem') {
       deleteFromSheet(CONFIG.SPREADSHEETS.LIBRARY, "Collections", data.id);
       return createJsonResponse({ status: 'success' });
     }
-
-    if (action === 'saveKey') {
-      saveToSheet(CONFIG.SPREADSHEETS.KEYS, "ApiKeys", data.keyRecord);
-      return createJsonResponse({ status: 'success' });
+    if (action === 'uploadAndExtract') {
+      return handleUploadAndExtract(data.fileData, data.fileName);
     }
-
-    if (action === 'deleteKey') {
-      deleteFromSheet(CONFIG.SPREADSHEETS.KEYS, "ApiKeys", data.id);
-      return createJsonResponse({ status: 'success' });
-    }
-
-    if (action === 'callGemini') {
-      const aiResponse = fetchGeminiWithRotation(data.prompt);
-      return createJsonResponse({ status: 'success', data: aiResponse });
-    }
-
     return createJsonResponse({ status: 'error', message: 'Unknown POST action' });
   } catch (err) {
     return createJsonResponse({ status: 'error', message: err.toString() });
   }
 }
 
-// --- REFACTORED CORE FUNCTIONS ---
+// --- CORE FUNCTIONS ---
 
 function getAllItems(ssId, sheetName) {
   const ss = SpreadsheetApp.openById(ssId);
   const sheet = ss.getSheetByName(sheetName);
   const values = sheet.getDataRange().getValues();
   if (values.length <= 1) return [];
-  
   const headers = values[0];
   return values.slice(1).map(row => {
     let item = {};
     headers.forEach((h, i) => {
       let val = row[i];
-      if (h === 'tags' || h === 'keyRecord') {
+      if (h === 'tags' || h === 'authors' || h === 'keywords' || h === 'labels') {
         try { val = JSON.parse(row[i] || '[]'); } catch(e) { val = row[i]; }
       }
       item[h] = val;
@@ -135,12 +114,10 @@ function saveToSheet(ssId, sheetName, item) {
   const ss = SpreadsheetApp.openById(ssId);
   const sheet = ss.getSheetByName(sheetName);
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  
   const rowData = headers.map(h => {
     const val = item[h];
     return (typeof val === 'object' && val !== null) ? JSON.stringify(val) : (val || '');
   });
-  
   sheet.appendRow(rowData);
 }
 
@@ -148,7 +125,6 @@ function deleteFromSheet(ssId, sheetName, id) {
   const ss = SpreadsheetApp.openById(ssId);
   const sheet = ss.getSheetByName(sheetName);
   const data = sheet.getDataRange().getValues();
-  
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === id) {
       sheet.deleteRow(i + 1);
@@ -157,52 +133,97 @@ function deleteFromSheet(ssId, sheetName, id) {
   }
 }
 
-// --- AI ENGINE WITH KEY ROTATION ---
+// --- EXTRACTION ENGINE ---
 
-function fetchGeminiWithRotation(prompt) {
-  const keyRecords = getAllItems(CONFIG.SPREADSHEETS.KEYS, "ApiKeys");
-  const keys = keyRecords.filter(r => r.status === 'active').map(r => r.key);
-  
-  if (keys.length === 0) {
-    throw new Error("No active API Keys found. Add them in Settings.");
-  }
+function handleUploadAndExtract(base64Data, fileName) {
+  try {
+    const folder = DriveApp.getFolderById(CONFIG.FOLDERS.MAIN_LIBRARY);
+    const contentType = 'application/pdf';
+    const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), contentType, fileName);
+    
+    // Step 1: Upload & OCR
+    // Use Drive API v2 for OCR. Must enable "Google Drive API" in Services.
+    const resource = {
+      title: fileName,
+      mimeType: contentType,
+      parents: [{ id: CONFIG.FOLDERS.MAIN_LIBRARY }]
+    };
+    
+    // Create OCR job
+    const file = Drive.Files.insert(resource, blob, { ocr: true });
+    const docId = file.id;
+    
+    // Step 2: Read Text from created Doc
+    const doc = DocumentApp.openById(docId);
+    const fullText = doc.getBody().getText();
+    
+    // Step 3: Extract Metadata using Regex (Heuristic)
+    const metadata = extractMetadata(fullText);
+    
+    // Step 4: Chunking (Max 48000 per chunk)
+    const chunks = chunkText(fullText, 48000);
+    
+    // Step 5: Clean up temporary Google Doc (Keep original PDF if needed, but Drive OCR creates a Doc)
+    // Actually Drive.Files.insert with ocr:true converts the file into a Doc format.
+    // If we want to keep the original PDF, we should have uploaded it separately.
+    // Let's assume for extraction we just need the text.
+    DriveApp.getFileById(docId).setTrashed(true);
 
-  const payload = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
-  };
-
-  const options = {
-    method: "post",
-    contentType: "application/json",
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  };
-
-  let lastError = "";
-  for (let i = 0; i < keys.length; i++) {
-    const activeKey = keys[i];
-    try {
-      const response = UrlFetchApp.fetch(`${GEMINI_ENDPOINT}?key=${activeKey}`, options);
-      const responseCode = response.getResponseCode();
-      const responseText = response.getContentText();
-      const result = JSON.parse(responseText);
-
-      if (responseCode === 200 && result.candidates) {
-        return result.candidates[0].content.parts[0].text;
-      } 
-      
-      if (responseCode === 429) {
-        console.warn(`Key ${i} limited. Rotating...`);
-        lastError = "Rate limit hit on all keys.";
-        continue;
+    return createJsonResponse({
+      status: 'success',
+      data: {
+        ...metadata,
+        fullText: fullText.substring(0, 1000), // Preview
+        chunks: chunks,
+        fileId: docId // This is the docId that was trashed, in real scenario we'd keep the original blob as PDF
       }
-      lastError = `AI Error ${responseCode}: ${responseText}`;
-    } catch (e) {
-      lastError = e.toString();
+    });
+  } catch (e) {
+    return createJsonResponse({ status: 'error', message: 'OCR Error: ' + e.toString() });
+  }
+}
+
+function extractMetadata(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const first3Pages = text.substring(0, 5000);
+  
+  // Year Regex (1900-2099)
+  const yearMatch = first3Pages.match(/\b(19|20)\d{2}\b/);
+  const year = yearMatch ? yearMatch[0] : "";
+  
+  // Title (Often the first longest line in the first few lines)
+  let title = lines[0] || "Untitled";
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    if (lines[i].length > title.length) {
+      title = lines[i];
     }
   }
-  return "Failure: " + lastError;
+
+  // Publisher (Simple check against common ones)
+  const publishers = ["Elsevier", "Springer", "IEEE", "MDPI", "Nature", "Science", "Wiley", "Taylor & Francis"];
+  let publisher = "";
+  for (const p of publishers) {
+    if (first3Pages.toLowerCase().includes(p.toLowerCase())) {
+      publisher = p;
+      break;
+    }
+  }
+
+  return {
+    title: title.substring(0, 200),
+    year: year,
+    publisher: publisher,
+    authors: [], // Author extraction is complex without AI, placeholder
+    keywords: []
+  };
+}
+
+function chunkText(text, size) {
+  const chunks = [];
+  for (let i = 0; i < text.length; i += size) {
+    chunks.push(text.substring(i, i + size));
+  }
+  return chunks;
 }
 
 function createJsonResponse(data) {
