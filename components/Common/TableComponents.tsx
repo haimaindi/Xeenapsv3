@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
@@ -49,9 +50,17 @@ export const StandardTh: React.FC<{
 /**
  * Standard Xeenaps Table Row
  * Features: Alternating background colors and primary-color-transparent hover effect.
+ * Updated to support onClick for row-level actions.
  */
-export const StandardTr: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <tr className={`even:bg-gray-50/50 hover:bg-[#004A74]/5 transition-all group border-b border-gray-50 last:border-0 ${className}`}>
+export const StandardTr: React.FC<{ 
+  children: React.ReactNode; 
+  className?: string; 
+  onClick?: () => void 
+}> = ({ children, className = "", onClick }) => (
+  <tr 
+    onClick={onClick}
+    className={`even:bg-gray-50/50 hover:bg-[#004A74]/5 transition-all group border-b border-gray-50 last:border-0 ${className}`}
+  >
     {children}
   </tr>
 );
