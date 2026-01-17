@@ -26,6 +26,7 @@ export const StandardTableWrapper: React.FC<{ children: React.ReactNode }> = ({ 
 /**
  * Standard Xeenaps Table Header Cell
  * Features: Primary brand color font, sort indicator support, and active sort column highlighting.
+ * Updated: Active sort indicator now uses primary color with 25% transparency.
  */
 export const StandardTh: React.FC<{
   children: React.ReactNode;
@@ -38,7 +39,7 @@ export const StandardTh: React.FC<{
     onClick={onClick}
     className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest text-[#004A74] transition-colors ${
       onClick ? 'cursor-pointer group/th select-none' : ''
-    } ${isActiveSort ? 'bg-[#FED400]/10' : 'bg-gray-50'} ${className}`}
+    } ${isActiveSort ? 'bg-[#004A74]/25' : 'bg-gray-50'} ${className}`}
     style={width ? { width } : {}}
   >
     <div className="flex items-center gap-2">
@@ -49,8 +50,7 @@ export const StandardTh: React.FC<{
 
 /**
  * Standard Xeenaps Table Row
- * Features: Alternating background colors and primary-color-transparent hover effect.
- * Updated to support onClick for row-level actions.
+ * Features: Removed alternating colors, added hover-zoom animation.
  */
 export const StandardTr: React.FC<{ 
   children: React.ReactNode; 
@@ -59,7 +59,7 @@ export const StandardTr: React.FC<{
 }> = ({ children, className = "", onClick }) => (
   <tr 
     onClick={onClick}
-    className={`even:bg-gray-50/50 hover:bg-[#004A74]/5 transition-all group border-b border-gray-50 last:border-0 ${className}`}
+    className={`hover:bg-[#004A74]/5 hover:scale-[1.002] transition-all duration-300 group border-b border-gray-50 last:border-0 origin-center ${className}`}
   >
     {children}
   </tr>
@@ -74,7 +74,7 @@ export const StandardTd: React.FC<{ children: React.ReactNode; isActiveSort?: bo
   isActiveSort, 
   className = "" 
 }) => (
-  <td className={`px-4 py-4 text-sm transition-colors ${isActiveSort ? 'bg-[#FED400]/5' : ''} ${className}`}>
+  <td className={`px-4 py-4 text-sm transition-colors ${isActiveSort ? 'bg-[#004A74]/5' : ''} ${className}`}>
     {children}
   </td>
 );
