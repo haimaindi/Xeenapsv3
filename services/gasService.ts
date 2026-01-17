@@ -83,7 +83,7 @@ export const saveLibraryItem = async (item: LibraryItem): Promise<boolean> => {
     if (result.status === 'success') {
       Toast.fire({ 
         icon: 'success', 
-        title: 'Koleksi berhasil disimpan',
+        title: 'Collection saved successfully',
         background: '#004A74',
         color: '#FFFFFF',
         iconColor: '#FED400'
@@ -92,7 +92,7 @@ export const saveLibraryItem = async (item: LibraryItem): Promise<boolean> => {
     }
     return false;
   } catch (error) {
-    Toast.fire({ icon: 'error', title: 'Gagal sinkronisasi' });
+    Toast.fire({ icon: 'error', title: 'Sync failed' });
     return false;
   }
 };
@@ -100,13 +100,13 @@ export const saveLibraryItem = async (item: LibraryItem): Promise<boolean> => {
 export const deleteLibraryItem = async (id: string): Promise<boolean> => {
   if (!checkConfig()) return false;
   const confirm = await Swal.fire({
-    title: 'Hapus Item?',
-    text: "Tindakan ini tidak bisa dibatalkan.",
+    title: 'Delete Item?',
+    text: "This action cannot be undone.",
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#004A74',
     cancelButtonColor: '#d33',
-    confirmButtonText: 'Ya, hapus!'
+    confirmButtonText: 'Yes, delete!'
   });
 
   if (!confirm.isConfirmed) return false;
@@ -118,7 +118,7 @@ export const deleteLibraryItem = async (id: string): Promise<boolean> => {
     });
     const result: GASResponse<any> = await response.json();
     if (result.status === 'success') {
-      Toast.fire({ icon: 'success', title: 'Berhasil dihapus' });
+      Toast.fire({ icon: 'success', title: 'Deleted successfully' });
       return true;
     }
     return false;

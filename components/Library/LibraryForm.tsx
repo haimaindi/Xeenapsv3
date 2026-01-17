@@ -8,7 +8,7 @@ import {
   CheckIcon, 
   LinkIcon, 
   DocumentIcon, 
-  CloudArrowUpIcon,
+  CloudArrowUpIcon, 
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { showXeenapsAlert } from '../../utils/swalUtils';
@@ -63,8 +63,8 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       if (selectedFile.size > 19.9 * 1024 * 1024) {
         showXeenapsAlert({
           icon: 'error',
-          title: 'File Terlalu Besar',
-          text: 'Ukuran maksimum file adalah 19.9MB.',
+          title: 'File Too Large',
+          text: 'Maximum file size is 19.9MB.',
           confirmButtonText: 'OK'
         });
         e.target.value = '';
@@ -74,23 +74,34 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       
       // Auto-extraction trigger
       setIsExtracting(true);
-      const result = await uploadAndExtract(selectedFile);
-      if (result) {
-        setFormData(prev => ({
-          ...prev,
-          title: result.title || prev.title,
-          year: result.year || prev.year,
-          publisher: result.publisher || prev.publisher,
-          authors: result.authors && result.authors.length > 0 ? result.authors : prev.authors,
-          keywords: result.keywords && result.keywords.length > 0 ? result.keywords : prev.keywords,
-          labels: result.keywords && result.keywords.length > 0 ? result.keywords : prev.labels,
-          type: (result.type as LibraryType) || prev.type,
-          category: result.category || prev.category,
-          fileId: result.fileId || '',
-          chunks: result.chunks || []
-        }));
+      try {
+        const result = await uploadAndExtract(selectedFile);
+        if (result) {
+          setFormData(prev => ({
+            ...prev,
+            title: result.title || prev.title,
+            year: result.year || prev.year,
+            publisher: result.publisher || prev.publisher,
+            authors: (result.authors && result.authors.length > 0) ? result.authors : prev.authors,
+            keywords: (result.keywords && result.keywords.length > 0) ? result.keywords : prev.keywords,
+            labels: (result.keywords && result.keywords.length > 0) ? result.keywords : prev.labels,
+            type: (result.type as LibraryType) || prev.type,
+            category: result.category || prev.category,
+            fileId: result.fileId || prev.fileId,
+            chunks: result.chunks || prev.chunks
+          }));
+        }
+      } catch (err) {
+        console.error("Extraction failed", err);
+        showXeenapsAlert({
+          icon: 'warning',
+          title: 'Extraction Partial Failure',
+          text: 'The file was uploaded but some metadata could not be extracted automatically.',
+          confirmButtonText: 'OK'
+        });
+      } finally {
+        setIsExtracting(false);
       }
-      setIsExtracting(false);
     }
   };
 
@@ -104,9 +115,9 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
     if (!validate()) {
       showXeenapsAlert({
         icon: 'error',
-        title: 'DATA BELUM LENGKAP',
-        text: 'Mohon isi semua field wajib bertanda (*) sebelum melanjutkan.',
-        confirmButtonText: 'MENGERTI'
+        title: 'INCOMPLETE DATA',
+        text: 'Please fill in all required fields marked with (*) before proceeding.',
+        confirmButtonText: 'UNDERSTAND'
       });
       return;
     }
@@ -170,8 +181,8 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
   return (
     <FormPageContainer>
       <FormStickyHeader 
-        title="Tambah Koleksi" 
-        subtitle="Perluas perpustakaan digital Anda" 
+        title="Add Collection" 
+        subtitle="Expand your digital library" 
         onBack={() => navigate('/')} 
         rightElement={HeaderSelector}
       />
@@ -181,31 +192,31 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
           {/* Source Section */}
           <div className="animate-in slide-in-from-top-4 duration-500">
             {formData.addMethod === 'LINK' ? (
-              <FormField label="URL Referensi" required error={!formData.url}>
+              <FormField label="Reference URL" required error={!formData.url}>
                 <div className="relative group">
                   <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300 group-focus-within:text-[#004A74] transition-colors" />
                   <input 
                     className={`w-full pl-12 pr-4 py-4 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#004A74]/10 focus:border-[#004A74] outline-none border ${!formData.url ? 'border-red-300' : 'border-gray-200'} shadow-sm text-sm font-medium transition-all`} 
-                    placeholder="Tempel link riset, URL PDF, atau halaman web di sini..."
+                    placeholder="Paste research link, PDF URL, or web page here..."
                     value={formData.url}
                     onChange={(e) => setFormData({...formData, url: e.target.value})}
                   />
                 </div>
               </FormField>
             ) : (
-              <FormField label="Lampiran File" required error={!file}>
+              <FormField label="File Attachment" required error={!file}>
                 <label className={`relative flex flex-col items-center justify-center w-full h-40 bg-gray-50 border-2 border-dashed ${!file ? 'border-red-300' : 'border-gray-200'} rounded-[2rem] cursor-pointer hover:bg-gray-100 hover:border-[#004A74]/40 transition-all group outline-none focus:ring-2 focus:ring-[#004A74]/10 overflow-hidden`}>
                   {isExtracting ? (
                     <div className="flex flex-col items-center animate-pulse">
                       <ArrowPathIcon className="w-10 h-10 text-[#004A74] animate-spin mb-3" />
-                      <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">Mengekstrak Metadata...</p>
-                      <p className="text-[10px] text-gray-400 mt-1">Google Drive OCR sedang memproses PDF Anda</p>
+                      <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">Extracting Metadata...</p>
+                      <p className="text-[10px] text-gray-400 mt-1">Google Drive OCR is processing your PDF</p>
                     </div>
                   ) : (
                     <>
                       <CloudArrowUpIcon className={`w-8 h-8 ${!file ? 'text-red-300' : 'text-gray-300'} group-hover:text-[#004A74] mb-2 transition-colors`} />
                       <p className="text-sm text-gray-500 group-hover:text-[#004A74] px-6 text-center">
-                        {file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Klik atau seret file PDF di sini (Maks 19.9Mb)"}
+                        {file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Click or drag PDF file here (Max 19.9Mb)"}
                       </p>
                     </>
                   )}
@@ -224,7 +235,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                 value={formData.type} 
                 onChange={(v) => setFormData({...formData, type: v as LibraryType})} 
                 options={Object.values(LibraryType)} 
-                placeholder="Pilih tipe..."
+                placeholder="Select type..."
                 error={!formData.type}
               />
             </FormField>
@@ -233,7 +244,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                 value={formData.category} 
                 onChange={(v) => setFormData({...formData, category: v})} 
                 options={['Original Research', 'Review']} 
-                placeholder="Pilih kategori..."
+                placeholder="Select category..."
                 error={!formData.category}
               />
             </FormField>
@@ -245,7 +256,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                 value={formData.topic} 
                 onChange={(v) => setFormData({...formData, topic: v})} 
                 options={existingValues.topics} 
-                placeholder="Topik..."
+                placeholder="Topic..."
                 error={!formData.topic}
               />
             </FormField>
@@ -254,15 +265,15 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                 value={formData.subTopic} 
                 onChange={(v) => setFormData({...formData, subTopic: v})} 
                 options={existingValues.subTopics} 
-                placeholder="Sub-topik..."
+                placeholder="Sub-topic..."
               />
             </FormField>
           </div>
 
-          <FormField label="Judul">
+          <FormField label="Title">
             <input 
               className={`w-full px-5 py-4 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#004A74]/10 outline-none border border-gray-200 focus:border-[#004A74] shadow-sm text-sm font-bold text-[#004A74] transition-all ${isExtracting ? 'opacity-50' : ''}`} 
-              placeholder="Masukkan judul dokumen..."
+              placeholder="Enter document title..."
               value={formData.title}
               onChange={(e) => setFormData({...formData, title: e.target.value})}
               disabled={isExtracting}
@@ -271,22 +282,22 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2">
-              <FormField label="Penulis (Author)">
+              <FormField label="Author(s)">
                 <FormDropdown 
                   isMulti 
                   multiValues={formData.authors} 
                   onAddMulti={(v) => setFormData({...formData, authors: [...formData.authors, v]})} 
                   onRemoveMulti={(v) => setFormData({...formData, authors: formData.authors.filter(a => a !== v)})} 
                   options={existingValues.allAuthors} 
-                  placeholder="Tambah penulis..."
+                  placeholder="Add authors..."
                   value="" 
                   onChange={() => {}} 
                 />
               </FormField>
             </div>
-            <FormField label="Tahun">
+            <FormField label="Year">
               <input 
-                type="number"
+                type="text"
                 className={`w-full px-5 py-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#004A74]/10 border border-gray-200 focus:border-[#004A74] text-sm font-mono font-bold transition-all ${isExtracting ? 'opacity-50' : ''}`} 
                 placeholder="YYYY"
                 value={formData.year}
@@ -296,36 +307,36 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
             </FormField>
           </div>
 
-          <FormField label="Penerbit / Jurnal">
+          <FormField label="Publisher / Journal">
             <FormDropdown 
               value={formData.publisher} 
               onChange={(v) => setFormData({...formData, publisher: v})} 
               options={existingValues.publishers} 
-              placeholder="Jurnal atau penerbit..."
+              placeholder="Journal or publisher..."
             />
           </FormField>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField label="Kata Kunci (Keywords)">
+            <FormField label="Keywords">
               <FormDropdown 
                 isMulti 
                 multiValues={formData.keywords} 
                 onAddMulti={(v) => setFormData({...formData, keywords: [...formData.keywords, v]})} 
                 onRemoveMulti={(v) => setFormData({...formData, keywords: formData.keywords.filter(a => a !== v)})} 
                 options={existingValues.allKeywords} 
-                placeholder="Tambah kata kunci..."
+                placeholder="Add keywords..."
                 value="" 
                 onChange={() => {}} 
               />
             </FormField>
-            <FormField label="Label">
+            <FormField label="Labels">
               <FormDropdown 
                 isMulti 
                 multiValues={formData.labels} 
                 onAddMulti={(v) => setFormData({...formData, labels: [...formData.labels, v]})} 
                 onRemoveMulti={(v) => setFormData({...formData, labels: formData.labels.filter(a => a !== v)})} 
                 options={existingValues.allLabels} 
-                placeholder="Tambah label..."
+                placeholder="Add labels..."
                 value="" 
                 onChange={() => {}} 
               />
@@ -338,14 +349,14 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
               onClick={() => navigate('/')}
               className="w-full md:px-10 py-5 bg-gray-100 text-gray-400 rounded-[1.5rem] font-black text-sm hover:bg-gray-200 transition-all uppercase tracking-widest active:scale-95"
             >
-              Batal
+              Cancel
             </button>
             <button 
               type="submit" 
               disabled={isSubmitting || isExtracting}
               className="w-full py-5 bg-[#004A74] text-white rounded-[1.5rem] font-black text-sm flex items-center justify-center gap-3 hover:shadow-2xl hover:bg-[#003859] transition-all disabled:opacity-50 transform active:scale-[0.98] tracking-widest uppercase"
             >
-              {isSubmitting ? 'SINKRONISASI...' : isExtracting ? 'MENGEKSTRAK...' : <><CheckIcon className="w-5 h-5" /> Register Item</>}
+              {isSubmitting ? 'SYNCING...' : isExtracting ? 'EXTRACTING...' : <><CheckIcon className="w-5 h-5" /> Register Item</>}
             </button>
           </div>
         </form>
