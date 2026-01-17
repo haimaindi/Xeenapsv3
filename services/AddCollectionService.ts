@@ -23,7 +23,6 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
     2. CONCISE FIELDS (STRICT LIMITS):
        - "topic": Exactly 2 words describing the main field.
        - "subTopic": Exactly 2 words describing the specific niche.
-       - "summary": Max 2-3 concise sentences.
 
     3. STYLE COMPLIANCE: 
        - inTextAPA: (Author, Year)
@@ -31,7 +30,6 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
        - inTextChicago: (Author Year)
 
     DATA MAPPING RULES:
-    - LISTS: Fields (strength, weakness, unfamiliarTerminology, supportingReferences) must use numbered format: 1., 2., 3.
     - TYPE: Leave this field out of the JSON.
 
     EXPECTED JSON SCHEMA:
@@ -51,13 +49,6 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
       "bibAPA": "STRICTLY COMPLETE APA ENTRY",
       "bibHarvard": "STRICTLY COMPLETE HARVARD ENTRY",
       "bibChicago": "STRICTLY COMPLETE CHICAGO ENTRY",
-      "abstract": "...",
-      "summary": "Concise summary",
-      "strength": "1. ...\n2. ...",
-      "weakness": "1. ...\n2. ...",
-      "unfamiliarTerminology": "1. ...\n2. ...",
-      "supportingReferences": "1. ...\n2. ...",
-      "quickTipsForYou": "..."
     }
 
     TEXT SNIPPET TO ANALYZE:
