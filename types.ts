@@ -82,6 +82,9 @@ export interface ExtractionResult {
   keywords?: string[];
   fullText?: string;
   chunks?: string[];
+  type?: LibraryType;
+  category?: string;
+  fileId?: string;
 }
 
 export type ViewState = 'LIBRARY' | 'ADD_ITEM' | 'SETTINGS' | 'AI_CHAT';

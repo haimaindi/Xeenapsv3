@@ -141,17 +141,19 @@ function handleUploadAndExtract(base64Data, fileName) {
     const contentType = 'application/pdf';
     const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), contentType, fileName);
     
-    // Step 1: Upload & OCR
-    // Use Drive API v2 for OCR. Must enable "Google Drive API" in Services.
+    // Save Original PDF to Drive
+    const pdfFile = folder.createFile(blob);
+    const pdfId = pdfFile.getId();
+    
+    // Step 1: Create OCR Job (Temporary Google Doc)
     const resource = {
-      title: fileName,
-      mimeType: contentType,
-      parents: [{ id: CONFIG.FOLDERS.MAIN_LIBRARY }]
+      title: "TEMP_OCR_" + fileName,
+      mimeType: contentType
     };
     
-    // Create OCR job
-    const file = Drive.Files.insert(resource, blob, { ocr: true });
-    const docId = file.id;
+    // Use Drive API v2 for OCR
+    const ocrFile = Drive.Files.insert(resource, blob, { ocr: true });
+    const docId = ocrFile.id;
     
     // Step 2: Read Text from created Doc
     const doc = DocumentApp.openById(docId);
@@ -163,19 +165,16 @@ function handleUploadAndExtract(base64Data, fileName) {
     // Step 4: Chunking (Max 48000 per chunk)
     const chunks = chunkText(fullText, 48000);
     
-    // Step 5: Clean up temporary Google Doc (Keep original PDF if needed, but Drive OCR creates a Doc)
-    // Actually Drive.Files.insert with ocr:true converts the file into a Doc format.
-    // If we want to keep the original PDF, we should have uploaded it separately.
-    // Let's assume for extraction we just need the text.
+    // Step 5: Clean up temporary Google Doc
     DriveApp.getFileById(docId).setTrashed(true);
 
     return createJsonResponse({
       status: 'success',
       data: {
         ...metadata,
-        fullText: fullText.substring(0, 1000), // Preview
+        fullText: fullText.substring(0, 1000), 
         chunks: chunks,
-        fileId: docId // This is the docId that was trashed, in real scenario we'd keep the original blob as PDF
+        fileId: pdfId // Return the ID of the saved PDF
       }
     });
   } catch (e) {
@@ -185,36 +184,71 @@ function handleUploadAndExtract(base64Data, fileName) {
 
 function extractMetadata(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  const first3Pages = text.substring(0, 5000);
+  const first3Pages = text.substring(0, 5000).toLowerCase();
   
   // Year Regex (1900-2099)
   const yearMatch = first3Pages.match(/\b(19|20)\d{2}\b/);
   const year = yearMatch ? yearMatch[0] : "";
   
-  // Title (Often the first longest line in the first few lines)
-  let title = lines[0] || "Untitled";
-  for (let i = 0; i < Math.min(5, lines.length); i++) {
-    if (lines[i].length > title.length) {
-      title = lines[i];
+  // Title Detection: Look for the first line that is long enough and not just numeric
+  let title = "";
+  let titleIndex = -1;
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const line = lines[i];
+    if (line.length > 20 && !/^\d+$/.test(line)) {
+      title = line;
+      titleIndex = i;
+      break;
+    }
+  }
+  if (!title) title = lines[0] || "Untitled";
+
+  // Author(s) Detection: Next line after title
+  let authors = [];
+  if (titleIndex !== -1 && lines[titleIndex + 1]) {
+    const authorLine = lines[titleIndex + 1];
+    if (authorLine.length < 150 && authorLine.includes(' ')) {
+       authors = authorLine.split(/[,;]/).map(a => a.trim()).filter(a => a.length > 3);
     }
   }
 
-  // Publisher (Simple check against common ones)
-  const publishers = ["Elsevier", "Springer", "IEEE", "MDPI", "Nature", "Science", "Wiley", "Taylor & Francis"];
+  // Publisher detection
+  const publishers = ["Elsevier", "Springer", "IEEE", "MDPI", "Nature", "Science", "Wiley", "Taylor & Francis", "ACM"];
   let publisher = "";
   for (const p of publishers) {
-    if (first3Pages.toLowerCase().includes(p.toLowerCase())) {
+    if (first3Pages.includes(p.toLowerCase())) {
       publisher = p;
       break;
     }
+  }
+
+  // Keywords detection
+  let keywords = [];
+  const keywordMatch = text.match(/(?:Keywords|Index Terms)[:\s]+([^.\n]+)/i);
+  if (keywordMatch && keywordMatch[1]) {
+    keywords = keywordMatch[1].split(/[,;]/).map(k => k.trim()).filter(k => k.length > 0);
+  }
+
+  // Type & Category Heuristics
+  let type = "Literature"; 
+  let category = "Original Research"; 
+  
+  if (first3Pages.includes("review") || first3Pages.includes("survey") || first3Pages.includes("comprehensive")) {
+    category = "Review";
+  }
+  
+  if (first3Pages.includes("task") || first3Pages.includes("assignment") || first3Pages.includes("homework")) {
+    type = "Task";
   }
 
   return {
     title: title.substring(0, 200),
     year: year,
     publisher: publisher,
-    authors: [], // Author extraction is complex without AI, placeholder
-    keywords: []
+    authors: authors,
+    keywords: keywords,
+    type: type,
+    category: category
   };
 }
 

@@ -44,6 +44,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
     keywords: [] as string[],
     labels: [] as string[],
     url: '',
+    fileId: '',
     chunks: [] as string[]
   });
 
@@ -80,6 +81,12 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
           title: result.title || prev.title,
           year: result.year || prev.year,
           publisher: result.publisher || prev.publisher,
+          authors: result.authors && result.authors.length > 0 ? result.authors : prev.authors,
+          keywords: result.keywords && result.keywords.length > 0 ? result.keywords : prev.keywords,
+          labels: result.keywords && result.keywords.length > 0 ? result.keywords : prev.labels,
+          type: (result.type as LibraryType) || prev.type,
+          category: result.category || prev.category,
+          fileId: result.fileId || '',
           chunks: result.chunks || []
         }));
       }
@@ -121,7 +128,8 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       addMethod: formData.addMethod,
       source: formData.addMethod === 'LINK' ? SourceType.LINK : SourceType.FILE,
       format: formData.addMethod === 'LINK' ? FileFormat.URL : FileFormat.PDF,
-      url: formData.url,
+      url: formData.addMethod === 'LINK' ? formData.url : '',
+      fileId: formData.addMethod === 'FILE' ? formData.fileId : '',
       keywords: formData.keywords,
       labels: formData.labels,
       tags: [...formData.keywords, ...formData.labels],
