@@ -32,7 +32,6 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [extractionStage, setExtractionStage] = useState<'IDLE' | 'READING' | 'AI_ANALYSIS'>('IDLE');
   const [file, setFile] = useState<File | null>(null);
-  const [aiInsights, setAiInsights] = useState<Partial<LibraryItem>>({});
   
   const [formData, setFormData] = useState({
     addMethod: 'LINK' as 'LINK' | 'FILE',
@@ -75,7 +74,6 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
         if (result && result.aiSnippet) {
           setExtractionStage('AI_ANALYSIS');
           const aiMeta = await extractMetadataWithAI(result.aiSnippet);
-          setAiInsights(aiMeta); // Simpan semua insight mendalam (Metodologi, Sitasi, dll)
           
           setFormData(prev => ({
             ...prev,
@@ -124,7 +122,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       category: formData.category,
       topic: formData.topic,
       subTopic: formData.subTopic,
-      author: formData.authors.join(', '),
+      author: formData.authors.join(', '), // Menggabungkan array penulis menjadi satu string dengan separator koma
       authors: formData.authors,
       publisher: formData.publisher,
       year: formData.year,
@@ -137,19 +135,20 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       labels: formData.labels,
       tags: [...formData.keywords, ...formData.labels],
       
-      // Inject AI Insights
-      inTextCitation: aiInsights.inTextCitation || '',
-      bibCitation: aiInsights.bibCitation || '',
-      researchMethodology: aiInsights.researchMethodology || '',
-      abstract: aiInsights.abstract || '',
-      summary: aiInsights.summary || '',
-      strength: aiInsights.strength || '',
-      weakness: aiInsights.weakness || '',
-      unfamiliarTerminology: aiInsights.unfamiliarTerminology || '',
-      supportingReferences: aiInsights.supportingReferences || '',
-      videoRecommendation: aiInsights.videoRecommendation || '',
-      quickTipsForYou: aiInsights.quickTipsForYou || '',
+      // Kolom Akademik (Dibiarkan kosong saat registrasi awal)
+      inTextCitation: '',
+      bibCitation: '',
+      researchMethodology: '',
+      abstract: '',
+      summary: '',
+      strength: '',
+      weakness: '',
+      unfamiliarTerminology: '',
+      supportingReferences: '',
+      videoRecommendation: '',
+      quickTipsForYou: '',
       
+      // Data Ekstraksi dari Python (10 Chunk)
       extractedInfo1: formData.chunks[0] || '',
       extractedInfo2: formData.chunks[1] || '',
       extractedInfo3: formData.chunks[2] || '',
@@ -201,8 +200,8 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                         <ArrowPathIcon className={`w-10 h-10 text-[#004A74] animate-spin mb-3 ${extractionStage === 'AI_ANALYSIS' ? 'opacity-20' : ''}`} />
                         {extractionStage === 'AI_ANALYSIS' && <SparklesIcon className="w-8 h-8 text-[#FED400] absolute top-1 left-1 animate-pulse" />}
                       </div>
-                      <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">{extractionStage === 'READING' ? 'Processing File...' : 'Deep AI Analysis...'}</p>
-                      <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-tighter">Extracting Academic Insights & Citations</p>
+                      <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">{extractionStage === 'READING' ? 'Processing File...' : 'Smart Metadata Scan...'}</p>
+                      <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-tighter">Identifying Title, Authors & Tags</p>
                     </div>
                   ) : (
                     <>
@@ -226,7 +225,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
           </div>
           <FormField label="Title"><input className={`w-full px-5 py-4 bg-gray-50 rounded-2xl focus:ring-2 focus:ring-[#004A74]/10 outline-none border border-gray-200 focus:border-[#004A74] shadow-sm text-sm font-bold text-[#004A74] transition-all ${isExtracting ? 'opacity-50' : ''}`} placeholder="Enter title..." value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} disabled={isExtracting} /></FormField>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2"><FormField label="Author(s)"><FormDropdown isMulti multiValues={formData.authors} onAddMulti={(v) => setFormData({...formData, authors: [...formData.authors, v]})} onRemoveMulti={(v) => setFormData({...formData, authors: formData.authors.filter(a => a !== v)})} options={existingValues.allAuthors} placeholder="Authors..." value="" onChange={() => {}} /></FormField></div>
+            <div className="md:col-span-2"><FormField label="Author(s)"><FormDropdown isMulti multiValues={formData.authors} onAddMulti={(v) => setFormData({...formData, authors: [...formData.authors, v]})} onRemoveMulti={(v) => setFormData({...formData, authors: formData.authors.filter(a => a !== v)})} options={existingValues.allAuthors} placeholder="Identify authors..." value="" onChange={() => {}} /></FormField></div>
             <FormField label="Year"><input type="text" className={`w-full px-5 py-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#004A74]/10 border border-gray-200 focus:border-[#004A74] text-sm font-mono font-bold transition-all ${isExtracting ? 'opacity-50' : ''}`} placeholder="YYYY" value={formData.year} onChange={(e) => setFormData({...formData, year: e.target.value.substring(0,4)})} disabled={isExtracting} /></FormField>
           </div>
           <FormField label="Publisher / Journal"><FormDropdown value={formData.publisher} onChange={(v) => setFormData({...formData, publisher: v})} options={existingValues.publishers} placeholder="Journal name..." /></FormField>

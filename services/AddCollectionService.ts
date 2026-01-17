@@ -3,40 +3,34 @@ import { LibraryItem } from "../types";
 import { callAiProxy } from "./gasService";
 
 /**
- * AddCollectionService via Secure GAS Proxy.
- * Melakukan ekstraksi metadata dasar dan deep insights akademik.
+ * AddCollectionService - Metadata Extraction Only.
+ * Fokus pada akurasi identifikasi metadata dasar dari snippet teks.
  */
 export const extractMetadataWithAI = async (textSnippet: string): Promise<Partial<LibraryItem>> => {
   try {
-    const prompt = `ACT AS A SENIOR ACADEMIC DATA EXTRACTOR & RESEARCH ANALYST.
-    TASK: Analyze the provided document text snippet and extract deep metadata.
+    const prompt = `ACT AS AN EXPERT ACADEMIC LIBRARIAN.
+    TASK: Extract basic metadata from the provided document text snippet.
     
-    IMPORTANT: Provide citations in APA 7th Edition, Harvard, and Chicago Style (Author-Date).
-    For Video Recommendation, identify a highly relevant YouTube video topic and provide a likely YouTube ID if found, or suggest a search term.
+    GUIDELINES:
+    1. Title: Identify the full official title.
+    2. Authors: Identify ALL authors. Return as a clean array of strings. 
+    3. Year: Extract the publication year (YYYY).
+    4. Publisher: Identify the Journal name, University, or Publishing House.
+    5. Classification: Determine the most appropriate Topic, Sub-Topic, Type, and Category.
+    6. Tags: Generate 5-7 specific keywords and 2-3 thematic labels.
     
     EXPECTED JSON SCHEMA:
     {
-      "title": "Full Academic Title",
-      "authors": ["Full Author Names"],
-      "publisher": "Journal or Publisher Name",
+      "title": "String",
+      "authors": ["Author Name 1", "Author Name 2"],
       "year": "YYYY",
+      "publisher": "String",
       "type": "Literature" | "Task" | "Personal" | "Other",
-      "category": "e.g., Original Research, Review, case study",
-      "topic": "Broad Scientific Topic",
-      "subTopic": "Specific Research Area",
-      "keywords": ["5-7 specific keywords"],
-      "labels": ["thematic labels"],
-      "inTextCitation": "Provide APA 7 parenthetical citation e.g. (Author, 2024)",
-      "bibCitation": "Provide full Bibliographic Citation in APA 7 style",
-      "researchMethodology": "Describe the methods used in the study",
-      "abstract": "Concise abstract of the document",
-      "summary": "2-3 sentences of main findings",
-      "strength": "1. First strength\\n2. Second strength",
-      "weakness": "1. First weakness\\n2. Second weakness",
-      "unfamiliarTerminology": "1. Term: Definition\\n2. Term: Definition",
-      "supportingReferences": "1. Ref 1\\n2. Ref 2",
-      "videoRecommendation": "YouTube Video ID (e.g. dQw4w9WgXcQ) or relevant search query",
-      "quickTipsForYou": "Narrative paragraph on how to use this knowledge in practice."
+      "category": "e.g., Original Research, Case Study, Handbook",
+      "topic": "String (Broad Area)",
+      "subTopic": "String (Specific Area)",
+      "keywords": ["tag1", "tag2"],
+      "labels": ["label1", "label2"]
     }
     
     TEXT SNIPPET:
@@ -49,7 +43,7 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
     const parsed = JSON.parse(jsonResponse);
     return parsed;
   } catch (error) {
-    console.error('Deep Extraction Workflow Failed:', error);
+    console.error('Metadata Extraction Failed:', error);
     return {};
   }
 };
