@@ -51,7 +51,7 @@ export interface LibraryItem {
   labels: string[];
   tags: string[];
   
-  // Multi-Style Citations
+  // Academic Citations (Expanded to 6 specific fields)
   inTextAPA?: string;
   inTextHarvard?: string;
   inTextChicago?: string;

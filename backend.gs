@@ -1,6 +1,6 @@
 
 /**
- * XEENAPS PKM - SECURE BACKEND V11 (ACADEMIC MULTI-CITATION EDITION)
+ * XEENAPS PKM - SECURE BACKEND V11 (ACADEMIC EDITION)
  */
 
 const CONFIG = {
@@ -14,11 +14,12 @@ const CONFIG = {
   },
   SCHEMAS: {
     LIBRARY: [
-      'id', 'title', 'type', 'category', 'topic', 'subTopic', 'author', 'publisher', 'year', 
+      'id', 'title', 'type', 'category', 'topic', 'subTopic', 'author', 'authors', 'publisher', 'year', 
       'source', 'format', 'url', 'fileId', 'tags', 'createdAt', 'updatedAt',
       'inTextAPA', 'inTextHarvard', 'inTextChicago', 'bibAPA', 'bibHarvard', 'bibChicago',
-      'researchMethodology', 'abstract', 'summary', 'strength', 'weakness', 
-      'unfamiliarTerminology', 'supportingReferences', 'videoRecommendation', 'quickTipsForYou',
+      'researchMethodology', 'abstract', 'summary', 
+      'strength', 'weakness', 'unfamiliarTerminology', 'supportingReferences', 
+      'videoRecommendation', 'quickTipsForYou',
       'extractedInfo1', 'extractedInfo2', 'extractedInfo3', 'extractedInfo4', 'extractedInfo5',
       'extractedInfo6', 'extractedInfo7', 'extractedInfo8', 'extractedInfo9', 'extractedInfo10'
     ]

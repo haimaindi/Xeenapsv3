@@ -7,7 +7,6 @@ import {
   BeakerIcon, 
   ChatBubbleBottomCenterTextIcon,
   AcademicCapIcon,
-  VideoCameraIcon,
   LightBulbIcon,
   ClipboardDocumentCheckIcon,
   ExclamationTriangleIcon,
@@ -20,22 +19,21 @@ interface LibraryDetailViewProps {
 }
 
 const LibraryDetailView: React.FC<LibraryDetailViewProps> = ({ item, onClose }) => {
-  const [citeStyle, setCiteStyle] = useState<'APA' | 'HARVARD' | 'CHICAGO'>('APA');
-
-  const getCitationData = () => {
-    if (citeStyle === 'APA') return { inText: item.inTextAPA, bib: item.bibAPA };
-    if (citeStyle === 'HARVARD') return { inText: item.inTextHarvard, bib: item.bibHarvard };
-    return { inText: item.inTextChicago, bib: item.bibChicago };
-  };
-
-  const currentCite = getCitationData();
+  const [activeStyle, setActiveStyle] = useState<'APA' | 'Harvard' | 'Chicago'>('APA');
 
   const handleCopy = (text?: string) => {
     if (text) {
       navigator.clipboard.writeText(text);
-      // Optional: Add toast notification
     }
   };
+
+  const getCitationData = () => {
+    if (activeStyle === 'APA') return { inText: item.inTextAPA, bib: item.bibAPA };
+    if (activeStyle === 'Harvard') return { inText: item.inTextHarvard, bib: item.bibHarvard };
+    return { inText: item.inTextChicago, bib: item.bibChicago };
+  };
+
+  const { inText, bib } = getCitationData();
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-end pointer-events-none">
@@ -51,33 +49,40 @@ const LibraryDetailView: React.FC<LibraryDetailViewProps> = ({ item, onClose }) 
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-10 pb-20">
-          {/* Multi-Style Citation Selector */}
-          <section className="space-y-4">
+          {/* Citation Section */}
+          <section className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                <AcademicCapIcon className="w-4 h-4" /> Academic Citations
+                <AcademicCapIcon className="w-4 h-4" /> Academic Citation
               </h3>
               <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
-                {(['APA', 'HARVARD', 'CHICAGO'] as const).map(s => (
-                  <button key={s} onClick={() => setCiteStyle(s)} className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${citeStyle === s ? 'bg-[#004A74] text-white' : 'text-gray-400 hover:text-[#004A74]'}`}>{s}</button>
+                {(['APA', 'Harvard', 'Chicago'] as const).map(style => (
+                  <button 
+                    key={style}
+                    onClick={() => setActiveStyle(style)}
+                    className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeStyle === style ? 'bg-[#004A74] text-white shadow-sm' : 'text-gray-400 hover:text-[#004A74]'}`}
+                  >
+                    {style}
+                  </button>
                 ))}
               </div>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-5 bg-gray-50 rounded-3xl border border-gray-100 relative group">
-                <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">In-Text Citation ({citeStyle})</p>
-                <code className="text-xs font-mono font-bold text-[#004A74] block bg-white p-3 rounded-xl border border-gray-100">{currentCite.inText || 'Not Analyzed'}</code>
-                <button onClick={() => handleCopy(currentCite.inText)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"><DocumentDuplicateIcon className="w-4 h-4 text-gray-400" /></button>
+                <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">In-Text ({activeStyle})</p>
+                <code className="text-xs font-mono font-bold text-[#004A74] block bg-white p-3 rounded-xl border border-gray-100">{inText || 'Not Available'}</code>
+                <button onClick={() => handleCopy(inText)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"><DocumentDuplicateIcon className="w-4 h-4 text-gray-400" /></button>
               </div>
               <div className="p-5 bg-gray-50 rounded-3xl border border-gray-100 relative group">
-                <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">Bibliographic Citation</p>
-                <code className="text-xs font-mono font-bold text-[#004A74] block bg-white p-3 rounded-xl border border-gray-100 leading-relaxed">{currentCite.bib || 'Not Analyzed'}</code>
-                <button onClick={() => handleCopy(currentCite.bib)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"><DocumentDuplicateIcon className="w-4 h-4 text-gray-400" /></button>
+                <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase">Bibliography ({activeStyle})</p>
+                <code className="text-xs font-mono font-bold text-[#004A74] block bg-white p-3 rounded-xl border border-gray-100 leading-relaxed">{bib || 'Not Available'}</code>
+                <button onClick={() => handleCopy(bib)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"><DocumentDuplicateIcon className="w-4 h-4 text-gray-400" /></button>
               </div>
             </div>
           </section>
 
-          {/* Abstract & Summary Findings */}
+          {/* Insights */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <section className="space-y-4">
               <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><BookOpenIcon className="w-4 h-4" /> Abstract</h3>
@@ -89,7 +94,6 @@ const LibraryDetailView: React.FC<LibraryDetailViewProps> = ({ item, onClose }) 
             </section>
           </div>
 
-          {/* Lists: Strength, Weakness, Terminology */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <section className="space-y-4">
               <h3 className="text-xs font-black uppercase tracking-widest text-green-500 flex items-center gap-2"><ClipboardDocumentCheckIcon className="w-4 h-4" /> Strengths</h3>
@@ -102,13 +106,8 @@ const LibraryDetailView: React.FC<LibraryDetailViewProps> = ({ item, onClose }) 
           </div>
 
           <section className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><LightBulbIcon className="w-4 h-4" /> Unfamiliar Terminology</h3>
-            <div className="bg-[#FED400]/10 border border-[#FED400]/20 p-6 rounded-[2.5rem] text-sm text-[#004A74] font-bold whitespace-pre-wrap leading-relaxed">{item.unfamiliarTerminology || 'N/A'}</div>
-          </section>
-
-          <section className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><LightBulbIcon className="w-4 h-4" /> Quick Tips For You</h3>
-            <div className="bg-[#004A74] p-8 rounded-[3rem] text-white shadow-xl shadow-[#004A74]/20 italic text-sm leading-relaxed">"{item.quickTipsForYou || 'Focus on the core methodology for your next review.'}"</div>
+            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><LightBulbIcon className="w-4 h-4" /> Quick Tips</h3>
+            <div className="bg-[#004A74] p-8 rounded-[3rem] text-white shadow-xl italic text-sm leading-relaxed">"{item.quickTipsForYou || 'Reference registered successfully.'}"</div>
           </section>
         </div>
       </div>
