@@ -22,7 +22,7 @@ export const extractMetadataWithAI = async (textSnippet: string): Promise<Partia
     1. COMPLETE FIELDS (NO TRUNCATION):
        - "title": Full, official academic title.
        - "authors": List of all full names found.
-       - "publisher": MANDATORY. Identify ACCURATELY the complete Publisher Name or Journal Name. DO NOT use "Not Specified", "N/A", or "Unknown". Look carefully at the entire document, the header, footer, or first page THEN ANALYZE AND FIND THE PUBLISHER NAME.
+       - "publisher": MANDATORY. Identify ACCURATELY the complete Publisher Name Fisrt, if publsisher is not found then Identify ACCURATELY the complete Journal Name, and if none of them are found then get more likely string to be catch as a publisher . DO NOT use "Not Specified", "N/A", or "Unknown". Look carefully at the entire document given, THEN ANALYZE AND FIND THE MOST ACCURATE PUBLISHER NAME.
        - "bibAPA", "bibHarvard", "bibChicago": COMPLETE bibliographic entries. Include full titles, full journal names, volume, issue, page ranges, and DOI. NEVER shorten.
     
     2. CONCISE FIELDS:
