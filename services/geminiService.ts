@@ -4,6 +4,7 @@ import { LibraryItem, LibraryType } from "../types";
 
 /**
  * Uses Gemini to intelligently parse structured metadata from raw text.
+ * Optimized for Academic Papers.
  */
 export const parseLibraryMetadata = async (textSample: string): Promise<Partial<LibraryItem>> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -11,21 +12,33 @@ export const parseLibraryMetadata = async (textSample: string): Promise<Partial<
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `You are a research assistant. Analyze this text from a document: "${textSample.substring(0, 6000)}".
-      Extract the metadata and return it in the specified JSON format. 
-      If a field is unknown, return an empty string or empty array.`,
+      contents: `ACT AS A RESEARCH LIBRARIAN. 
+      Analyze the provided text from a research paper/document and extract METADATA.
+      
+      CRITICAL INSTRUCTIONS:
+      1. TITLE: Find the full official title. If it spans multiple lines, join them. Fix broken words (e.g., "T owards" -> "Towards").
+      2. AUTHORS: List ONLY names. Remove affiliations (e.g., "Dept of...").
+      3. PUBLISHER: Identify the Journal name or Publishing House.
+      4. YEAR: Extract publication year (4 digits).
+      5. TYPE: Categorize as 'Literature', 'Task', or 'Personal'.
+      6. CATEGORY: Categorize as 'Original Research' or 'Review'.
+
+      TEXT SAMPLE:
+      """
+      ${textSample.substring(0, 8000)}
+      """`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            title: { type: Type.STRING, description: "The official title of the paper or document." },
-            authors: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of individual author names." },
-            publisher: { type: Type.STRING, description: "Journal name, university, or publisher." },
-            year: { type: Type.STRING, description: "Year of publication (YYYY)." },
-            keywords: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Top 5 relevant keywords." },
-            type: { type: Type.STRING, description: "Categorize as: Literature, Task, Personal, or Other." },
-            category: { type: Type.STRING, description: "Categorize as: Original Research or Review." }
+            title: { type: Type.STRING },
+            authors: { type: Type.ARRAY, items: { type: Type.STRING } },
+            publisher: { type: Type.STRING },
+            year: { type: Type.STRING },
+            keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+            type: { type: Type.STRING },
+            category: { type: Type.STRING }
           },
           required: ["title", "authors", "year"]
         }

@@ -1,6 +1,7 @@
 
 import { LibraryItem, GASResponse, ExtractionResult } from '../types';
 import { GAS_WEB_APP_URL } from '../constants';
+import { parseLibraryMetadata } from './geminiService';
 import Swal from 'sweetalert2';
 
 const Toast = Swal.mixin({
@@ -22,12 +23,14 @@ export const fetchLibrary = async (): Promise<LibraryItem[]> => {
 };
 
 /**
- * Orchestrates Python Text Extraction + GAS Drive Storage.
- * Gemini is NO LONGER used here to save quota.
+ * Hybrid Extraction:
+ * 1. Python extracts raw text and chunks.
+ * 2. Gemini parses the first few KB for perfect metadata.
+ * 3. GAS handles the file storage.
  */
 export const uploadAndExtract = async (file: File): Promise<ExtractionResult | null> => {
   try {
-    // 1. Step: Python PDF Extraction (Metadata + Text Chunks)
+    // Phase 1: Python PDF Text Extraction
     const formData = new FormData();
     formData.append('file', file);
     
@@ -36,13 +39,23 @@ export const uploadAndExtract = async (file: File): Promise<ExtractionResult | n
       body: formData
     });
     
-    if (!pyResponse.ok) throw new Error('Python extraction failed');
+    if (!pyResponse.ok) throw new Error('Text extraction failed');
     const pyResult = await pyResponse.json();
-    
     if (pyResult.status !== 'success') throw new Error(pyResult.message);
-    const extractionData = pyResult.data;
+    
+    const rawData = pyResult.data;
+    const textSnippet = rawData.chunks[0] || ""; // Grab the first chunk for AI analysis
 
-    // 2. Step: Upload to Drive via GAS (To get fileId for storage)
+    // Phase 2: AI Metadata Refinement (Using Gemini)
+    // We send a small snippet to Gemini for perfect parsing
+    let refinedMetadata = {};
+    try {
+      refinedMetadata = await parseLibraryMetadata(textSnippet);
+    } catch (aiErr) {
+      console.warn("AI Refinement failed, falling back to heuristics:", aiErr);
+    }
+
+    // Phase 3: Google Drive Upload via GAS
     const reader = new FileReader();
     const base64Promise = new Promise<string>((resolve) => {
       reader.onload = () => resolve((reader.result as string).split(',')[1]);
@@ -61,8 +74,10 @@ export const uploadAndExtract = async (file: File): Promise<ExtractionResult | n
     const gasResult = await gasResponse.json();
     const fileId = gasResult.status === 'success' ? gasResult.fileId : '';
 
+    // Merge results: AI results take priority over Python heuristics
     return {
-      ...extractionData,
+      ...rawData,
+      ...refinedMetadata,
       fileId
     } as ExtractionResult;
 
