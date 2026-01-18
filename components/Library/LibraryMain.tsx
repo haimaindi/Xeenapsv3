@@ -166,9 +166,14 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
   const formatDateTime = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
-      const date = d.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-      return `${date} ${time}`;
+      if (isNaN(d.getTime())) return '-';
+      const day = d.getDate().toString().padStart(2, '0');
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const month = months[d.getMonth()];
+      const year = d.getFullYear();
+      const hours = d.getHours().toString().padStart(2, '0');
+      const minutes = d.getMinutes().toString().padStart(2, '0');
+      return `${day} ${month} ${year} ${hours}:${minutes}`;
     } catch {
       return '-';
     }
@@ -195,7 +200,7 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
   ];
 
   return (
-    <div className="flex flex-col h-full space-y-4 animate-in fade-in duration-500 overflow-visible relative">
+    <div className="flex flex-col space-y-4 animate-in fade-in duration-500 overflow-visible relative">
       {/* Detail Overlay */}
       {selectedItem && (
         <LibraryDetailView item={selectedItem} onClose={() => setSelectedItem(null)} />
@@ -259,7 +264,7 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         </div>
       )}
 
-      <div className="hidden lg:flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="hidden lg:flex flex-col">
         <StandardTableContainer>
           <StandardTableWrapper>
             <thead className="sticky top-0 z-[50]">
@@ -330,7 +335,7 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         </StandardTableContainer>
       </div>
 
-      <div className="flex lg:hidden flex-col flex-1 min-h-0 space-y-3 overflow-y-auto custom-scrollbar pb-10">
+      <div className="flex lg:hidden flex-col space-y-3 pb-10">
         {paginatedItems.map((item) => (
           <div key={item.id} className={`relative flex flex-col p-5 bg-white border rounded-3xl transition-all ${selectedIds.includes(item.id) ? 'border-[#004A74] shadow-md bg-[#004A74]/5 scale-[0.98]' : 'border-gray-100 shadow-sm active:scale-[0.98]'}`} onClick={() => setSelectedItem(item)}>
             
@@ -393,12 +398,11 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
 
             <div className="h-px bg-gray-50 mb-3" />
 
-            {/* Row 7: YEAR | CreatedAt (DateTime) unified on one row */}
-            <div className="flex items-center gap-2 text-gray-400">
+            {/* Row 7: YEAR | CreatedAt (DateTime) unified on one row - Date moved to right */}
+            <div className="flex items-center justify-between text-gray-400">
               <span className="text-xs font-mono font-black text-[#004A74]">
                 {item.year || '-'}
               </span>
-              <span className="text-[10px] opacity-30">|</span>
               <span className="text-[9px] font-bold uppercase tracking-tight">
                 {formatDateTime(item.createdAt)}
               </span>
