@@ -26,7 +26,8 @@ export const StandardTableWrapper: React.FC<{ children: React.ReactNode }> = ({ 
 /**
  * Standard Xeenaps Table Header Cell
  * Features: Primary brand color font, sort indicator support, and active sort column highlighting.
- * Updated: Active sort indicator now uses primary color with 25% transparency.
+ * Updated: Active sort indicator now uses an opaque background (solid white + 15% primary overlay)
+ * to ensure that scrolling content in the table body is hidden completely behind the header.
  */
 export const StandardTh: React.FC<{
   children: React.ReactNode;
@@ -39,8 +40,15 @@ export const StandardTh: React.FC<{
     onClick={onClick}
     className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest text-[#004A74] transition-colors ${
       onClick ? 'cursor-pointer group/th select-none' : ''
-    } ${isActiveSort ? 'bg-[#004A74]/25' : 'bg-gray-50'} ${className}`}
-    style={width ? { width } : {}}
+    } ${!isActiveSort ? 'bg-gray-50' : ''} ${className}`}
+    style={{
+      ...width ? { width } : {},
+      ...(isActiveSort ? { 
+        backgroundColor: '#FFFFFF', 
+        backgroundImage: 'linear-gradient(rgba(0, 74, 116, 0.15), rgba(0, 74, 116, 0.15))',
+        backgroundBlendMode: 'normal'
+      } : {})
+    }}
   >
     <div className="flex items-center gap-2">
       {children}
