@@ -32,7 +32,9 @@ import {
   StandardTr, 
   StandardTd, 
   StandardTableFooter, 
-  StandardCheckbox 
+  StandardCheckbox,
+  StandardGridContainer,
+  StandardItemCard
 } from '../Common/TableComponents';
 import { 
   StandardQuickAccessBar, 
@@ -70,10 +72,11 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 1024);
     window.addEventListener('resize', handleResize);
+    // Fix: replaced non-existent window.removeResize() with window.removeEventListener for correct cleanup
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const itemsPerPage = isMobile ? 10 : 25;
+  const itemsPerPage = isMobile ? 20 : 25;
   const filters: ('All' | LibraryType)[] = ['All', LibraryType.LITERATURE, LibraryType.TASK, LibraryType.PERSONAL, LibraryType.OTHER];
   const effectiveSearch = localSearch || globalSearch;
 
@@ -251,7 +254,7 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         <StandardQuickActionButton variant="warning" onClick={() => handleBatchAction('isFavorite')}><StarIcon className="w-5 h-5" /></StandardQuickActionButton>
       </StandardQuickAccessBar>
 
-      {/* Select All Button for Mobile - Positioned below Quick Access but above Cards */}
+      {/* Select All Button for Mobile */}
       {isMobile && paginatedItems.length > 0 && (
         <div className="lg:hidden shrink-0 mt-2">
           <button 
@@ -264,7 +267,7 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         </div>
       )}
 
-      {/* lg:flex-none to allow root container to handle scrolling */}
+      {/* Table View (Desktop) */}
       <div className="hidden lg:flex flex-col flex-none">
         <StandardTableContainer>
           <StandardTableWrapper>
@@ -336,82 +339,87 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         </StandardTableContainer>
       </div>
 
-      {/* flex-none to allow root container to handle scrolling */}
-      <div className="flex lg:hidden flex-col space-y-3 pb-10 flex-none">
-        {paginatedItems.map((item) => (
-          <div key={item.id} className={`relative flex flex-col p-5 bg-white border rounded-3xl transition-all ${selectedIds.includes(item.id) ? 'border-[#004A74] shadow-md bg-[#004A74]/5 scale-[0.98]' : 'border-gray-100 shadow-sm active:scale-[0.98]'}`} onClick={() => setSelectedItem(item)}>
-            
-            {/* Row 1: Checkbox & Category capsule side-by-side */}
-            <div className="flex items-center gap-3 mb-2" onClick={(e) => e.stopPropagation()}>
-               <button 
-                onClick={() => toggleSelectItem(item.id)}
-                className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${selectedIds.includes(item.id) ? 'bg-[#004A74] border-[#004A74] text-white' : 'bg-white border-gray-200'}`}
-              >
-                {selectedIds.includes(item.id) && <CheckIcon className="w-3 h-3 stroke-[4]" />}
-              </button>
-              <span className="text-[8px] font-black uppercase tracking-widest bg-[#004A74] text-white px-2 py-0.5 rounded-full">
-                {item.category || 'GENERAL'}
-              </span>
-            </div>
-
-            {/* Row 2: TOPIC (Header) */}
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#004A74] opacity-80">
-                {item.topic || 'NO TOPIC'}
-              </span>
-            </div>
-
-            {/* Row 3: SubTopic (Subheader) - Negative margin to make it very close to topic */}
-            <div className="mt-[-4px] mb-2">
-              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
-                {item.subTopic || 'No Sub Topic'}
-              </span>
-            </div>
-
-            {/* Row 4: TITLE */}
-            <div className="flex items-start gap-2 mb-3">
-              <div className="shrink-0 mt-1">
-                {item.addMethod === 'FILE' ? (
-                  <DocumentIcon className="w-3.5 h-3.5 text-[#004A74]" />
-                ) : (
-                  <LinkIcon className="w-3.5 h-3.5 text-[#560D96]" />
-                )}
+      {/* Grid View (Mobile/Tablet) */}
+      <div className="lg:hidden flex-none pb-10">
+        <StandardGridContainer>
+          {paginatedItems.map((item) => (
+            <StandardItemCard 
+              key={item.id} 
+              isSelected={selectedIds.includes(item.id)} 
+              onClick={() => setSelectedItem(item)}
+            >
+              {/* Row 1: Checkbox & Category */}
+              <div className="flex items-center gap-3 mb-2" onClick={(e) => e.stopPropagation()}>
+                <button 
+                  onClick={() => toggleSelectItem(item.id)}
+                  className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${selectedIds.includes(item.id) ? 'bg-[#004A74] border-[#004A74] text-white' : 'bg-white border-gray-200'}`}
+                >
+                  {selectedIds.includes(item.id) && <CheckIcon className="w-3 h-3 stroke-[4]" />}
+                </button>
+                <span className="text-[8px] font-black uppercase tracking-widest bg-[#004A74] text-white px-2 py-0.5 rounded-full">
+                  {item.category || 'GENERAL'}
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-[#004A74] line-clamp-2 leading-tight">
-                  {item.title}
-                </h3>
+
+              {/* Row 2: TOPIC */}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#004A74] opacity-80">
+                  {item.topic || 'NO TOPIC'}
+                </span>
               </div>
-              <div className="flex gap-1 shrink-0 mt-1">
-                {item.isBookmarked && <BookmarkSolid className="w-3 h-3 text-[#004A74]" />}
-                {item.isFavorite && <StarSolid className="w-3 h-3 text-[#FED400]" />}
+
+              {/* Row 3: SubTopic */}
+              <div className="mt-[-4px] mb-2">
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
+                  {item.subTopic || 'No Sub Topic'}
+                </span>
               </div>
-            </div>
 
-            {/* Row 5: Author(s) */}
-            <p className="text-xs font-medium text-gray-500 italic line-clamp-2 mb-1">
-              {item.author || 'Unknown Author'}
-            </p>
+              {/* Row 4: TITLE */}
+              <div className="flex items-start gap-2 mb-3">
+                <div className="shrink-0 mt-1">
+                  {item.addMethod === 'FILE' ? (
+                    <DocumentIcon className="w-3.5 h-3.5 text-[#004A74]" />
+                  ) : (
+                    <LinkIcon className="w-3.5 h-3.5 text-[#560D96]" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-[#004A74] line-clamp-2 leading-tight">
+                    {item.title}
+                  </h3>
+                </div>
+                <div className="flex gap-1 shrink-0 mt-1">
+                  {item.isBookmarked && <BookmarkSolid className="w-3 h-3 text-[#004A74]" />}
+                  {item.isFavorite && <StarSolid className="w-3 h-3 text-[#FED400]" />}
+                </div>
+              </div>
 
-            {/* Row 6: Publisher */}
-            <p className="text-[11px] text-gray-400 truncate mb-4">
-              {item.publisher || '-'}
-            </p>
+              {/* Row 5: Author(s) */}
+              <p className="text-xs font-medium text-gray-500 italic line-clamp-2 mb-1">
+                {item.author || 'Unknown Author'}
+              </p>
 
-            <div className="h-px bg-gray-50 mb-3" />
+              {/* Row 6: Publisher */}
+              <p className="text-[11px] text-gray-400 truncate mb-4">
+                {item.publisher || '-'}
+              </p>
 
-            {/* Row 7: YEAR | CreatedAt (DateTime) unified on one row - Date moved to right */}
-            <div className="flex items-center justify-between text-gray-400">
-              <span className="text-xs font-mono font-black text-[#004A74]">
-                {item.year || '-'}
-              </span>
-              <span className="text-[9px] font-bold uppercase tracking-tight">
-                {formatDateTime(item.createdAt)}
-              </span>
-            </div>
-          </div>
-        ))}
-        {totalPages > 1 && <div className="pt-4 pb-6"><StandardTableFooter totalItems={filteredAndSortedItems.length} currentPage={currentPage} itemsPerPage={itemsPerPage} totalPages={totalPages} onPageChange={setCurrentPage} /></div>}
+              <div className="h-px bg-gray-50 mb-3" />
+
+              {/* Row 7: YEAR | Date */}
+              <div className="flex items-center justify-between text-gray-400">
+                <span className="text-xs font-mono font-black text-[#004A74]">
+                  {item.year || '-'}
+                </span>
+                <span className="text-[9px] font-bold uppercase tracking-tight">
+                  {formatDateTime(item.createdAt)}
+                </span>
+              </div>
+            </StandardItemCard>
+          ))}
+        </StandardGridContainer>
+        {totalPages > 1 && <div className="pt-8"><StandardTableFooter totalItems={filteredAndSortedItems.length} currentPage={currentPage} itemsPerPage={itemsPerPage} totalPages={totalPages} onPageChange={setCurrentPage} /></div>}
       </div>
     </div>
   );

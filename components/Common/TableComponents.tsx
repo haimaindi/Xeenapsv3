@@ -25,9 +25,6 @@ export const StandardTableWrapper: React.FC<{ children: React.ReactNode }> = ({ 
 
 /**
  * Standard Xeenaps Table Header Cell
- * Features: Primary brand color font, sort indicator support, and active sort column highlighting.
- * Updated: Active sort indicator now uses an opaque background (solid white + 15% primary overlay)
- * to ensure that scrolling content in the table body is hidden completely behind the header.
  */
 export const StandardTh: React.FC<{
   children: React.ReactNode;
@@ -58,7 +55,6 @@ export const StandardTh: React.FC<{
 
 /**
  * Standard Xeenaps Table Row
- * Features: Removed alternating colors, added hover-zoom animation.
  */
 export const StandardTr: React.FC<{ 
   children: React.ReactNode; 
@@ -75,7 +71,6 @@ export const StandardTr: React.FC<{
 
 /**
  * Standard Xeenaps Table Data Cell
- * Updated: Removed background color for active sort column to keep table body clean.
  */
 export const StandardTd: React.FC<{ children: React.ReactNode; isActiveSort?: boolean; className?: string }> = ({ 
   children, 
@@ -85,6 +80,37 @@ export const StandardTd: React.FC<{ children: React.ReactNode; isActiveSort?: bo
   <td className={`px-4 py-4 text-sm transition-colors ${className}`}>
     {children}
   </td>
+);
+
+/**
+ * Standard Xeenaps Responsive Grid Container for Cards
+ * Implements the 1x20 (mobile), 2x10 (tablet), 4x5 (small desktop) pattern.
+ */
+export const StandardGridContainer: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
+  <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 ${className}`}>
+    {children}
+  </div>
+);
+
+/**
+ * Standard Xeenaps Item Card for Grid View
+ */
+export const StandardItemCard: React.FC<{
+  isSelected?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
+  className?: string;
+}> = ({ isSelected, onClick, children, className = "" }) => (
+  <div 
+    onClick={onClick}
+    className={`relative flex flex-col p-5 bg-white border rounded-3xl transition-all ${
+      isSelected 
+        ? 'border-[#004A74] shadow-md bg-[#004A74]/5 scale-[0.98]' 
+        : 'border-gray-100 shadow-sm active:scale-[0.98]'
+    } ${className}`}
+  >
+    {children}
+  </div>
 );
 
 /**
