@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { BellIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 // @ts-ignore
 import { useLocation } from 'react-router-dom';
 import { BRAND_ASSETS, SPREADSHEET_CONFIG } from '../../assets';
@@ -7,17 +8,18 @@ import { BRAND_ASSETS, SPREADSHEET_CONFIG } from '../../assets';
 interface HeaderProps {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
+  onRefresh?: () => Promise<void>;
 }
 
-const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery }) => {
+const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery, onRefresh }) => {
   const location = useLocation();
   const [tutorialLink, setTutorialLink] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Mapping path to Tutorial ID from Spreadsheet
   const getTutorialId = (pathname: string): string => {
     if (pathname === '/add') return 'AddLibrary';
     if (pathname === '/settings') return 'Settings';
-    // Default or Library views
     if (pathname === '/' || pathname === '/favorite' || pathname === '/bookmark' || pathname === '/research') {
       return 'MainLibrary';
     }
@@ -35,8 +37,6 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery }) => {
         const csvData = await response.text();
         const rows = csvData.split('\n');
         
-        // Find row where Column A (index 0) matches tutorialId
-        // Column C (index 2) is the LinkTutorial
         for (const row of rows) {
           const cols = row.split(',').map(c => c.replace(/"/g, '').trim());
           if (cols[0] === tutorialId) {
@@ -62,17 +62,40 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery }) => {
     }
   };
 
-  // Placeholder user data
+  const handleRefreshClick = async () => {
+    if (isRefreshing || !onRefresh) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      // Small delay to ensure the animation is visible
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }
+  };
+
   const rawName = "Personal User";
-  // Mengonversi ke Proper Case (Kapital di awal setiap kata)
   const userName = rawName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-  
-  const userPhoto = ""; // String kosong untuk memicu placeholder
+  const userPhoto = ""; 
   const placeholderUrl = BRAND_ASSETS.USER_DEFAULT;
 
   return (
     <header className="sticky top-0 z-[60] w-full py-4 lg:py-6 bg-white/80 backdrop-blur-md flex items-center justify-between border-b border-gray-100/50 px-1">
-      {/* Bagian Kiri: Welcome Message (Left Align) */}
+      <style>{`
+        @keyframes refresh-glow {
+          0% { color: #ef4444; } /* Red-500 */
+          50% { color: #fbbf24; } /* Yellow-400 */
+          100% { color: #ef4444; }
+        }
+        .refresh-loading {
+          animation: spin 1s linear infinite, refresh-glow 2s ease-in-out infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+
+      {/* Bagian Kiri: Welcome Message */}
       <div className="flex flex-col">
         <span className="text-[9px] md:text-[11px] uppercase font-normal tracking-[0.2em] text-[#004A74] opacity-90">
           WELCOME,
@@ -82,13 +105,25 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery }) => {
         </h1>
       </div>
 
-      {/* Bagian Kanan: Icons (Right Align) */}
-      <div className="flex items-center gap-1 md:gap-2">
+      {/* Bagian Kanan: Icons */}
+      <div className="flex items-center gap-1 md:gap-3">
+        {/* Refresh Button */}
+        <button 
+          onClick={handleRefreshClick}
+          disabled={isRefreshing}
+          className="p-2 text-[#004A74] hover:bg-gray-50 rounded-full transition-all duration-300 outline-none group"
+          title="Refresh Data"
+        >
+          <ArrowPathIcon 
+            className={`w-5 h-5 md:w-6 md:h-6 transition-colors duration-500 ${isRefreshing ? 'refresh-loading' : 'group-active:scale-90'}`} 
+          />
+        </button>
+
         {/* YouTube Tutorial Icon */}
         {tutorialLink && (
           <button 
             onClick={handleTutorialClick}
-            className="p-1 hover:bg-red-50 rounded-full transition-all duration-300 animate-in fade-in zoom-in group outline-none"
+            className="p-1 hover:bg-red-50 rounded-full transition-all duration-300 group outline-none"
             title="Watch Tutorial"
           >
             <img 
@@ -98,15 +133,9 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery }) => {
             />
           </button>
         )}
-
-        {/* Bell Icon */}
-        <button className="relative p-2 text-[#004A74] opacity-60 hover:opacity-100 hover:bg-gray-50 rounded-full transition-all duration-300">
-          <BellIcon className="w-5 h-5 md:w-6 md:h-6" />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#FED400] rounded-full border-2 border-white"></span>
-        </button>
         
-        {/* User Photo with rounded frame */}
-        <button className="flex items-center focus:outline-none p-1">
+        {/* User Photo with overlay notification dot placeholder */}
+        <button className="flex items-center focus:outline-none p-1 relative">
           <div className="relative">
             <div className="w-10 h-10 md:w-11 md:h-11 rounded-full border-2 border-[#FED400] p-0.5 hover:border-[#004A74] transition-colors duration-300 overflow-hidden shadow-sm bg-white">
               <img 
@@ -115,6 +144,8 @@ const Header: React.FC<HeaderProps> = ({ searchQuery, setSearchQuery }) => {
                 className="w-full h-full object-cover rounded-full bg-gray-50"
               />
             </div>
+            {/* Notification Dot Overlay (Top Right of Photo) */}
+            <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#FED400] rounded-full border-2 border-white shadow-sm scale-90"></span>
           </div>
         </button>
       </div>
