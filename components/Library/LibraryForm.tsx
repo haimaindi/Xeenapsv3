@@ -69,9 +69,14 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      // Perbesar ukuran maksimal menjadi 25 Mb
+      // PERMINTAAN: Perbesar ukuran maksimal menjadi 25 Mb
       if (selectedFile.size > 25 * 1024 * 1024) {
-        showXeenapsAlert({ icon: 'error', title: 'File Too Large', text: 'Maximum file size is 25MB.', confirmButtonText: 'OK' });
+        showXeenapsAlert({ 
+          icon: 'error', 
+          title: 'File Too Large', 
+          text: 'Maximum allowed file size for Xeenaps is 25MB.', 
+          confirmButtonText: 'OK' 
+        });
         e.target.value = '';
         return;
       }
@@ -109,7 +114,12 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
         }
       } catch (err: any) {
         console.error("Extraction workflow failed:", err);
-        showXeenapsAlert({ icon: 'warning', title: 'Extraction Notice', text: 'File uploaded, but automatic metadata extraction failed.', confirmButtonText: 'OK' });
+        showXeenapsAlert({ 
+          icon: 'warning', 
+          title: 'Extraction Notice', 
+          text: err.message || 'Automatic metadata extraction failed. You can still fill it manually.', 
+          confirmButtonText: 'OK' 
+        });
       } finally {
         setExtractionStage('IDLE');
       }
@@ -130,7 +140,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
 
     setIsSubmitting(true);
     
-    // Improved format detection logic for various document types
+    // Logika deteksi format berdasarkan ekstensi file
     let detectedFormat = FileFormat.PDF;
     if (file) {
       const extension = file.name.split('.').pop()?.toLowerCase();
@@ -240,17 +250,23 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                         <ArrowPathIcon className={`w-10 h-10 text-[#004A74] animate-spin mb-3 ${extractionStage === 'AI_ANALYSIS' ? 'opacity-20' : ''}`} />
                         {extractionStage === 'AI_ANALYSIS' && <SparklesIcon className="w-8 h-8 text-[#FED400] absolute top-1 left-1 animate-pulse" />}
                       </div>
-                      <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">{extractionStage === 'READING' ? 'Processing File...' : 'Smart Metadata Scan...'}</p>
-                      <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-tighter">Fixing text spacing & identifying metadata</p>
+                      <p className="text-sm font-black text-[#004A74] tracking-widest uppercase">{extractionStage === 'READING' ? 'Reading Content...' : 'AI Metadata Analysis...'}</p>
+                      <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-tighter">Please wait while we scan your document</p>
                     </div>
                   ) : (
                     <>
                       <CloudArrowUpIcon className={`w-8 h-8 ${!file ? 'text-red-300' : 'text-gray-300'} group-hover:text-[#004A74] mb-2 transition-colors`} />
-                      <p className="text-sm text-gray-500 group-hover:text-[#004A74] px-6 text-center">{file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Click or drag document file here (Max 25Mb)"}</p>
+                      <p className="text-sm text-gray-500 group-hover:text-[#004A74] px-6 text-center">{file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Drop PDF, DOCX, PPTX, or XLSX here (Max 25Mb)"}</p>
                     </>
                   )}
-                  {/* Updated accept attribute to include multi-format documents and excluded non-document types */}
-                  <input type="file" className="hidden" onChange={handleFileChange} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.epub" disabled={isExtracting} />
+                  {/* PERMINTAAN: Bisa multiformat file dokumen (pdf, docx, txt, excel, ppt) */}
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    onChange={handleFileChange} 
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.epub" 
+                    disabled={isExtracting} 
+                  />
                 </label>
               </FormField>
             )}
