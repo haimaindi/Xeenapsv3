@@ -69,8 +69,9 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.size > 19.9 * 1024 * 1024) {
-        showXeenapsAlert({ icon: 'error', title: 'File Too Large', text: 'Maximum file size is 19.9MB.', confirmButtonText: 'OK' });
+      // Perbesar ukuran maksimal menjadi 25 Mb
+      if (selectedFile.size > 25 * 1024 * 1024) {
+        showXeenapsAlert({ icon: 'error', title: 'File Too Large', text: 'Maximum file size is 25MB.', confirmButtonText: 'OK' });
         e.target.value = '';
         return;
       }
@@ -129,9 +130,23 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
 
     setIsSubmitting(true);
     
+    // Improved format detection logic for various document types
     let detectedFormat = FileFormat.PDF;
-    if (file && file.name.toLowerCase().endsWith('.pptx')) {
-      detectedFormat = FileFormat.PPTX;
+    if (file) {
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      switch (extension) {
+        case 'pptx': detectedFormat = FileFormat.PPTX; break;
+        case 'ppt': detectedFormat = FileFormat.PPT; break;
+        case 'docx': detectedFormat = FileFormat.DOCX; break;
+        case 'doc': detectedFormat = FileFormat.DOC; break;
+        case 'xlsx': detectedFormat = FileFormat.XLSX; break;
+        case 'xls': detectedFormat = FileFormat.XLS; break;
+        case 'csv': detectedFormat = FileFormat.CSV; break;
+        case 'txt': detectedFormat = FileFormat.TXT; break;
+        case 'md': detectedFormat = FileFormat.MD; break;
+        case 'epub': detectedFormat = FileFormat.EPUB; break;
+        default: detectedFormat = FileFormat.PDF;
+      }
     }
 
     const newItem: LibraryItem = {
@@ -231,10 +246,11 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                   ) : (
                     <>
                       <CloudArrowUpIcon className={`w-8 h-8 ${!file ? 'text-red-300' : 'text-gray-300'} group-hover:text-[#004A74] mb-2 transition-colors`} />
-                      <p className="text-sm text-gray-500 group-hover:text-[#004A74] px-6 text-center">{file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Click or drag PDF or PPTX file here (Max 19.9Mb)"}</p>
+                      <p className="text-sm text-gray-500 group-hover:text-[#004A74] px-6 text-center">{file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Click or drag document file here (Max 25Mb)"}</p>
                     </>
                   )}
-                  <input type="file" className="hidden" onChange={handleFileChange} accept=".pdf,.pptx" disabled={isExtracting} />
+                  {/* Updated accept attribute to include multi-format documents and excluded non-document types */}
+                  <input type="file" className="hidden" onChange={handleFileChange} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.epub" disabled={isExtracting} />
                 </label>
               </FormField>
             )}

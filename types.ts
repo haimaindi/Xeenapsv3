@@ -14,7 +14,13 @@ export enum FileFormat {
   MP4 = 'MP4',
   URL = 'URL',
   EPUB = 'EPUB',
-  PPTX = 'PPTX'
+  PPTX = 'PPTX',
+  TXT = 'TXT',
+  XLSX = 'XLSX',
+  CSV = 'CSV',
+  DOC = 'DOC',
+  XLS = 'XLS',
+  PPT = 'PPT'
 }
 
 export enum LibraryType {

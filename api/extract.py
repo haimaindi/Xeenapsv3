@@ -3,6 +3,8 @@ import io
 import re
 from pypdf import PdfReader
 from pptx import Presentation
+from docx import Document
+import openpyxl
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -47,21 +49,32 @@ def extract():
         if file.filename == '':
             return jsonify({"status": "error", "message": "No file selected"}), 400
 
+        filename_lower = file.filename.lower()
+        
+        # Audio/Video block
+        audio_video_ext = ('.mp3', '.wav', '.ogg', '.m4a', '.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv')
+        if filename_lower.endswith(audio_video_ext):
+            return jsonify({"status": "error", "message": "Audio and video files are not supported. Documents only."}), 400
+
         file_bytes = file.read()
         f = io.BytesIO(file_bytes)
-        filename_lower = file.filename.lower()
         full_text = ""
 
         if filename_lower.endswith('.pdf'):
             try:
                 reader = PdfReader(f)
-                # Loop through all pages
                 for page in reader.pages:
                     page_text = page.extract_text()
                     if page_text:
                         full_text += page_text + "\n"
-            except Exception as pdf_err:
-                return jsonify({"status": "error", "message": f"PDF Error: {str(pdf_err)}"}), 422
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"PDF Error: {str(e)}"}), 422
+        elif filename_lower.endswith('.docx'):
+            try:
+                doc = Document(f)
+                full_text = "\n".join([para.text for para in doc.paragraphs])
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"Word Error: {str(e)}"}), 422
         elif filename_lower.endswith('.pptx'):
             try:
                 prs = Presentation(f)
@@ -69,18 +82,30 @@ def extract():
                     for shape in slide.shapes:
                         if hasattr(shape, "text") and shape.text:
                             full_text += shape.text + "\n"
-                    # Include notes for better AI analysis context
                     if slide.has_notes_slide:
                         notes_text = slide.notes_slide.notes_text_frame.text
                         if notes_text:
                             full_text += notes_text + "\n"
-            except Exception as ppt_err:
-                return jsonify({"status": "error", "message": f"PPTX Error: {str(ppt_err)}"}), 422
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"PPTX Error: {str(e)}"}), 422
+        elif filename_lower.endswith('.xlsx'):
+            try:
+                wb = openpyxl.load_workbook(f, data_only=True)
+                for sheet in wb.worksheets:
+                    for row in sheet.iter_rows(values_only=True):
+                        full_text += " ".join([str(cell) for cell in row if cell is not None]) + "\n"
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"Excel Error: {str(e)}"}), 422
+        elif filename_lower.endswith(('.txt', '.md', '.csv')):
+            try:
+                full_text = file_bytes.decode('utf-8', errors='ignore')
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"Text File Error: {str(e)}"}), 422
         else:
-            return jsonify({"status": "error", "message": "Unsupported file format. Please upload PDF or PPTX."}), 400
+            return jsonify({"status": "error", "message": "Unsupported file format. Please upload a document (PDF, Word, Excel, PPT, Text)."}), 400
 
         if not full_text.strip():
-            return jsonify({"status": "error", "message": "Could not extract text."}), 422
+            return jsonify({"status": "error", "message": "Could not extract text from the document."}), 422
 
         # 1. Batasi total teks (200.000 karakter)
         limit_total = 200000
@@ -105,7 +130,4 @@ def extract():
             }
         })
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-if __name__ == '__main__':
-    app.run(port=5000)
+        return jsonify({"status": "error", "message": str(e)}), 
