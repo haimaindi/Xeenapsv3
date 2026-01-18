@@ -67,14 +67,14 @@ export const StandardTr: React.FC<{
 
 /**
  * Standard Xeenaps Table Data Cell
- * Features: Active sort column background highlighting.
+ * Updated: Removed background color for active sort column to keep table body clean.
  */
 export const StandardTd: React.FC<{ children: React.ReactNode; isActiveSort?: boolean; className?: string }> = ({ 
   children, 
   isActiveSort, 
   className = "" 
 }) => (
-  <td className={`px-4 py-4 text-sm transition-colors ${isActiveSort ? 'bg-[#004A74]/5' : ''} ${className}`}>
+  <td className={`px-4 py-4 text-sm transition-colors ${className}`}>
     {children}
   </td>
 );

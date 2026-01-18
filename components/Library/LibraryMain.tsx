@@ -163,9 +163,12 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
     onRefresh();
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDateTime = (dateStr: string) => {
     try {
-      return new Date(dateStr).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const d = new Date(dateStr);
+      const date = d.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      return `${date} ${time}`;
     } catch {
       return '-';
     }
@@ -188,7 +191,7 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
     { key: 'category', label: 'Category', width: '150px' },
     { key: 'topic', label: 'Topic', width: '150px' },
     { key: 'subTopic', label: 'Sub Topic', width: '150px' },
-    { key: 'createdAt', label: 'Created At', width: '120px' },
+    { key: 'createdAt', label: 'Created At', width: '150px' },
   ];
 
   return (
@@ -211,17 +214,6 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         </div>
         
         <div className="flex items-center gap-2 shrink-0">
-          {/* Mobile Select All Button */}
-          {isMobile && paginatedItems.length > 0 && (
-            <button 
-              onClick={toggleSelectAll}
-              className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 ${selectedIds.length === paginatedItems.length ? 'bg-[#004A74] border-[#004A74] text-white' : 'bg-white border-gray-100 text-[#004A74]'}`}
-            >
-              {selectedIds.length === paginatedItems.length ? <CheckCircleSolid className="w-5 h-5" /> : <CheckCircleIcon className="w-5 h-5" />}
-              <span className="text-[10px] font-black uppercase tracking-widest">{selectedIds.length === paginatedItems.length ? 'DESELECT' : 'SELECT ALL'}</span>
-            </button>
-          )}
-
           <div className="relative lg:hidden shrink-0">
             <button onClick={() => setShowSortMenu(!showSortMenu)} className={`p-2.5 rounded-xl border transition-all ${showSortMenu ? 'bg-[#004A74] border-[#004A74] text-white shadow-md' : 'bg-white border-gray-100 text-[#004A74] shadow-sm'}`}><AdjustmentsHorizontalIcon className="w-5 h-5" /></button>
             {showSortMenu && (
@@ -254,6 +246,19 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         <StandardQuickActionButton variant="warning" onClick={() => handleBatchAction('isFavorite')}><StarIcon className="w-5 h-5" /></StandardQuickActionButton>
       </StandardQuickAccessBar>
 
+      {/* Select All Button for Mobile - Positioned below Quick Access but above Cards */}
+      {isMobile && paginatedItems.length > 0 && (
+        <div className="lg:hidden shrink-0 mt-2">
+          <button 
+            onClick={toggleSelectAll}
+            className={`w-full p-2.5 rounded-xl border transition-all flex items-center justify-center gap-2 ${selectedIds.length === paginatedItems.length ? 'bg-[#004A74] border-[#004A74] text-white' : 'bg-white border-gray-100 text-[#004A74]'}`}
+          >
+            {selectedIds.length === paginatedItems.length ? <CheckCircleSolid className="w-5 h-5" /> : <CheckCircleIcon className="w-5 h-5" />}
+            <span className="text-[10px] font-black uppercase tracking-widest">{selectedIds.length === paginatedItems.length ? 'DESELECT' : 'SELECT ALL'}</span>
+          </button>
+        </div>
+      )}
+
       <div className="hidden lg:flex flex-col flex-1 min-h-0 overflow-hidden">
         <StandardTableContainer>
           <StandardTableWrapper>
@@ -279,10 +284,10 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
               ) : (
                 paginatedItems.map((item) => (
                   <StandardTr key={item.id} className="cursor-pointer" onClick={() => setSelectedItem(item)}>
-                    <td className="px-6 py-4 sticky left-0 z-20 border-r border-gray-100/50 bg-white group-even:bg-white group-hover:bg-[#f0f7fa] shadow-sm" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-6 py-4 sticky left-0 z-20 border-r border-gray-100/50 bg-white group-hover:bg-[#f0f7fa] shadow-sm" onClick={(e) => e.stopPropagation()}>
                       <StandardCheckbox checked={selectedIds.includes(item.id)} onChange={() => toggleSelectItem(item.id)} />
                     </td>
-                    <StandardTd isActiveSort={sortConfig.key === 'title'} className="sticky left-12 z-20 border-r border-gray-100/50 bg-white group-even:bg-white group-hover:bg-[#f0f7fa] shadow-sm">
+                    <StandardTd isActiveSort={sortConfig.key === 'title'} className="sticky left-12 z-20 border-r border-gray-100/50 bg-white group-hover:bg-[#f0f7fa] shadow-sm">
                       <div className="flex items-start gap-2 group/title">
                         <div className="shrink-0 mt-0.5 transition-transform group-hover/title:scale-110">
                           {item.addMethod === 'FILE' ? (
@@ -315,7 +320,7 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
                     <StandardTd isActiveSort={sortConfig.key === 'category'} className="text-xs text-gray-600">{item.category || '-'}</StandardTd>
                     <StandardTd isActiveSort={sortConfig.key === 'topic'} className="text-xs text-gray-600">{item.topic || '-'}</StandardTd>
                     <StandardTd isActiveSort={sortConfig.key === 'subTopic'} className="text-xs text-gray-600">{item.subTopic || '-'}</StandardTd>
-                    <StandardTd isActiveSort={sortConfig.key === 'createdAt'} className="text-xs font-medium text-gray-400">{formatDate(item.createdAt)}</StandardTd>
+                    <StandardTd isActiveSort={sortConfig.key === 'createdAt'} className="text-xs font-medium text-gray-400 whitespace-nowrap">{formatDateTime(item.createdAt)}</StandardTd>
                   </StandardTr>
                 ))
               )}
@@ -329,32 +334,34 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         {paginatedItems.map((item) => (
           <div key={item.id} className={`relative flex flex-col p-5 bg-white border rounded-3xl transition-all ${selectedIds.includes(item.id) ? 'border-[#004A74] shadow-md bg-[#004A74]/5 scale-[0.98]' : 'border-gray-100 shadow-sm active:scale-[0.98]'}`} onClick={() => setSelectedItem(item)}>
             
-            {/* New Checkbox position: At the top of the header row */}
-            <div className="flex items-center justify-between mb-1" onClick={(e) => e.stopPropagation()}>
-               <div className="flex items-center gap-2">
-                 <button 
-                  onClick={() => toggleSelectItem(item.id)}
-                  className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${selectedIds.includes(item.id) ? 'bg-[#004A74] border-[#004A74] text-white' : 'bg-white border-gray-200'}`}
-                >
-                  {selectedIds.includes(item.id) && <CheckIcon className="w-3 h-3 stroke-[4]" />}
-                </button>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#004A74] opacity-60">
-                  {item.topic || 'NO TOPIC'}
-                </span>
-               </div>
-               {/* Category as a primary color capsule */}
-               <span className="text-[8px] font-black uppercase tracking-widest bg-[#004A74] text-white px-2 py-0.5 rounded-full">
+            {/* Row 1: Checkbox & Category capsule */}
+            <div className="flex items-center gap-3 mb-2" onClick={(e) => e.stopPropagation()}>
+               <button 
+                onClick={() => toggleSelectItem(item.id)}
+                className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${selectedIds.includes(item.id) ? 'bg-[#004A74] border-[#004A74] text-white' : 'bg-white border-gray-200'}`}
+              >
+                {selectedIds.includes(item.id) && <CheckIcon className="w-3 h-3 stroke-[4]" />}
+              </button>
+              <span className="text-[8px] font-black uppercase tracking-widest bg-[#004A74] text-white px-2 py-0.5 rounded-full">
                 {item.category || 'GENERAL'}
               </span>
             </div>
 
-            {/* Spacing reduced between Topic and Subtopic */}
-            <div className="mb-1">
+            {/* Row 2: TOPIC (Header) */}
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#004A74] opacity-80">
+                {item.topic || 'NO TOPIC'}
+              </span>
+            </div>
+
+            {/* Row 3: SubTopic (Subheader) - Very close to topic */}
+            <div className="mt-[-2px] mb-2">
               <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
                 {item.subTopic || 'No Sub Topic'}
               </span>
             </div>
 
+            {/* Row 4: TITLE */}
             <div className="flex items-start gap-2 mb-3">
               <div className="shrink-0 mt-1">
                 {item.addMethod === 'FILE' ? (
@@ -374,22 +381,25 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
               </div>
             </div>
 
+            {/* Row 5: Author(s) */}
             <p className="text-xs font-medium text-gray-500 italic line-clamp-2 mb-1">
               {item.author || 'Unknown Author'}
             </p>
 
+            {/* Row 6: Publisher */}
             <p className="text-[11px] text-gray-400 truncate mb-4">
               {item.publisher || '-'}
             </p>
 
             <div className="h-px bg-gray-50 mb-3" />
 
+            {/* Row 7: YEAR | CreatedAt (DateTime) */}
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono font-bold text-[#004A74]">
                 {item.year || '-'}
               </span>
               <span className="text-[9px] text-gray-300 font-medium">
-                {formatDate(item.createdAt)}
+                {formatDateTime(item.createdAt)}
               </span>
             </div>
           </div>
