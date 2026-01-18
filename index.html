@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Xeenaps - Personal Knowledge Management</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,6 +15,9 @@
       font-family: 'Inter', sans-serif;
       background-color: #FFFFFF;
       color: #004A74;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
     }
     .glass {
       background: rgba(255, 255, 255, 0.7);
@@ -55,6 +59,25 @@
     }
     .animate-xeenaps-bounce {
       animation: xeenaps-bounce 3s ease-in-out infinite;
+    }
+
+    /* Forced Portrait for Smartphones in Landscape */
+    @media screen and (max-width: 767px) and (orientation: landscape) {
+      html, body {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+      #root {
+        position: fixed;
+        width: 100vh;
+        height: 100vw;
+        top: 0;
+        left: 100vw;
+        transform: rotate(90deg);
+        transform-origin: top left;
+        overflow: hidden;
+      }
     }
   </style>
 <script type="importmap">

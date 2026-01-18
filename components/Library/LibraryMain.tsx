@@ -334,7 +334,7 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         {paginatedItems.map((item) => (
           <div key={item.id} className={`relative flex flex-col p-5 bg-white border rounded-3xl transition-all ${selectedIds.includes(item.id) ? 'border-[#004A74] shadow-md bg-[#004A74]/5 scale-[0.98]' : 'border-gray-100 shadow-sm active:scale-[0.98]'}`} onClick={() => setSelectedItem(item)}>
             
-            {/* Row 1: Checkbox & Category capsule */}
+            {/* Row 1: Checkbox & Category capsule side-by-side */}
             <div className="flex items-center gap-3 mb-2" onClick={(e) => e.stopPropagation()}>
                <button 
                 onClick={() => toggleSelectItem(item.id)}
@@ -354,8 +354,8 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
               </span>
             </div>
 
-            {/* Row 3: SubTopic (Subheader) - Very close to topic */}
-            <div className="mt-[-2px] mb-2">
+            {/* Row 3: SubTopic (Subheader) - Negative margin to make it very close to topic */}
+            <div className="mt-[-4px] mb-2">
               <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
                 {item.subTopic || 'No Sub Topic'}
               </span>
@@ -393,12 +393,13 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
 
             <div className="h-px bg-gray-50 mb-3" />
 
-            {/* Row 7: YEAR | CreatedAt (DateTime) */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold text-[#004A74]">
+            {/* Row 7: YEAR | CreatedAt (DateTime) unified on one row */}
+            <div className="flex items-center gap-2 text-gray-400">
+              <span className="text-xs font-mono font-black text-[#004A74]">
                 {item.year || '-'}
               </span>
-              <span className="text-[9px] text-gray-300 font-medium">
+              <span className="text-[10px] opacity-30">|</span>
+              <span className="text-[9px] font-bold uppercase tracking-tight">
                 {formatDateTime(item.createdAt)}
               </span>
             </div>
