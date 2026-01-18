@@ -1,5 +1,6 @@
+
 /**
- * XEENAPS PKM - SECURE BACKEND V11 (ACADEMIC EDITION)
+ * XEENAPS PKM - SECURE BACKEND V12 (ACADEMIC EDITION)
  */
 
 const CONFIG = {
@@ -26,10 +27,14 @@ const CONFIG = {
 };
 
 function doGet(e) {
-  const action = e.parameter.action;
-  if (action === 'getLibrary') return createJsonResponse({ status: 'success', data: getAllItems(CONFIG.SPREADSHEETS.LIBRARY, "Collections") });
-  if (action === 'getAiConfig') return createJsonResponse({ status: 'success', data: getProviderModel('GEMINI') });
-  return createJsonResponse({ status: 'error', message: 'Invalid action' });
+  try {
+    const action = e.parameter.action;
+    if (action === 'getLibrary') return createJsonResponse({ status: 'success', data: getAllItems(CONFIG.SPREADSHEETS.LIBRARY, "Collections") });
+    if (action === 'getAiConfig') return createJsonResponse({ status: 'success', data: getProviderModel('GEMINI') });
+    return createJsonResponse({ status: 'error', message: 'Invalid action: ' + action });
+  } catch (err) {
+    return createJsonResponse({ status: 'error', message: err.toString() });
+  }
 }
 
 function doPost(e) {
@@ -88,38 +93,46 @@ function doPost(e) {
 
 /**
  * Menggunakan fitur konversi Google Drive untuk mengekstrak teks secara programmatic.
+ * Memerlukan Drive API (v2) Advanced Service diaktifkan di GAS.
  */
 function extractTextContent(blob, mimeType) {
+  // 1. Teks dasar (Txt, MD, CSV)
+  if (mimeType.includes('text/') || mimeType.includes('csv')) {
+    return blob.getDataAsString();
+  }
+
+  // 2. OCR/Konversi Dokumen (PDF, Word, PPT, Image)
   const resource = {
     title: blob.getName(),
     mimeType: mimeType
   };
 
-  // Gunakan Drive API v2 untuk konversi otomatis (OCR/Format)
-  // Memerlukan Drive API Advanced Service diaktifkan di GAS
   const options = {
     ocr: true,
     ocrLanguage: "en",
     convert: true
   };
 
+  let tempFileId = null;
   try {
-    // Unggah dan konversi sementara ke Google Doc
+    // Unggah dan konversi sementara ke Google Doc menggunakan Drive API v2
     const tempFile = Drive.Files.insert(resource, blob, options);
-    const tempDoc = DocumentApp.openById(tempFile.id);
+    tempFileId = tempFile.id;
+    
+    // Buka doc dan ambil teksnya
+    const tempDoc = DocumentApp.openById(tempFileId);
     const text = tempDoc.getBody().getText();
     
-    // Hapus file sementara
-    Drive.Files.remove(tempFile.id);
+    // Hapus file sementara segera
+    Drive.Files.remove(tempFileId);
     
     return text;
   } catch (e) {
-    // Fallback jika Drive API v2 tidak tersedia atau error
-    // Mencoba pembacaan teks dasar untuk txt/md/csv
-    if (mimeType.includes('text/') || mimeType.includes('csv')) {
-      return blob.getDataAsString();
+    // Cleanup jika error terjadi setelah file terbuat
+    if (tempFileId) {
+      try { Drive.Files.remove(tempFileId); } catch(i) {}
     }
-    throw e;
+    throw new Error("Programmatic extraction failed. Ensure 'Drive API' service is enabled in Apps Script and you have redeployed with the latest scopes. Original Error: " + e.message);
   }
 }
 
@@ -135,13 +148,12 @@ function setupDatabase() {
       sheet = ss.insertSheet("Collections");
     }
     
-    // Selalu paksa baris pertama (Header) sesuai skema terbaru
     const headers = CONFIG.SCHEMAS.LIBRARY;
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f3f3f3");
     sheet.setFrozenRows(1);
     
-    return { status: 'success', message: 'Database initialized successfully with all required columns.' };
+    return { status: 'success', message: 'Database initialized successfully.' };
   } catch (err) {
     return { status: 'error', message: err.toString() };
   }
@@ -151,6 +163,7 @@ function getProviderModel(providerName) {
   try {
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEETS.AI_CONFIG);
     const sheet = ss.getSheetByName('AI');
+    if (!sheet) return { model: getDefaultModel(providerName) };
     const data = sheet.getDataRange().getValues();
     for (let i = 0; i < data.length; i++) {
       if (data[i][0] && data[i][0].toString().toUpperCase() === providerName.toUpperCase()) {
@@ -167,7 +180,7 @@ function getDefaultModel(provider) {
 
 function handleAiRequest(provider, prompt, modelOverride) {
   const keys = (provider === 'groq') ? getKeysFromSheet('Groq', 2) : getKeysFromSheet('ApiKeys', 1);
-  if (!keys || keys.length === 0) return { status: 'error', message: 'No API keys found' };
+  if (!keys || keys.length === 0) return { status: 'error', message: 'No active API keys found in spreadsheet.' };
   const config = getProviderModel(provider);
   const model = modelOverride || config.model;
   let lastError = '';
@@ -177,7 +190,7 @@ function handleAiRequest(provider, prompt, modelOverride) {
       if (responseText) return { status: 'success', data: responseText };
     } catch (err) { lastError = err.toString(); }
   }
-  return { status: 'error', message: lastError };
+  return { status: 'error', message: 'AI Request failed with all keys. Last error: ' + lastError };
 }
 
 function callGroqApi(apiKey, model, prompt) {
@@ -191,6 +204,7 @@ function callGroqApi(apiKey, model, prompt) {
   };
   const res = UrlFetchApp.fetch(url, { method: "post", contentType: "application/json", headers: { "Authorization": "Bearer " + apiKey }, payload: JSON.stringify(payload), muteHttpExceptions: true });
   const json = JSON.parse(res.getContentText());
+  if (json.error) throw new Error(json.error.message);
   return json.choices[0].message.content;
 }
 
@@ -199,6 +213,7 @@ function callGeminiApi(apiKey, model, prompt) {
   const payload = { contents: [{ parts: [{ text: prompt }] }] };
   const res = UrlFetchApp.fetch(url, { method: "post", contentType: "application/json", payload: JSON.stringify(payload), muteHttpExceptions: true });
   const json = JSON.parse(res.getContentText());
+  if (json.error) throw new Error(json.error.message);
   return json.candidates[0].content.parts[0].text;
 }
 
@@ -236,7 +251,7 @@ function saveToSheet(ssId, sheetName, item) {
   const ss = SpreadsheetApp.openById(ssId);
   let sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
-    setupDatabase(); // Auto setup if sheet missing
+    setupDatabase();
     sheet = ss.getSheetByName(sheetName);
   }
   const headers = CONFIG.SCHEMAS.LIBRARY;

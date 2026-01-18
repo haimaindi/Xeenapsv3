@@ -1,3 +1,4 @@
+
 import { LibraryItem, GASResponse, ExtractionResult } from '../types';
 import { GAS_WEB_APP_URL } from '../constants';
 import Swal from 'sweetalert2';
@@ -21,17 +22,36 @@ export const initializeDatabase = async (): Promise<{ status: string; message: s
     });
     return await response.json();
   } catch (error: any) {
+    console.error("Init Database Error:", error);
     return { status: 'error', message: error.toString() };
   }
 };
 
 export const fetchLibrary = async (): Promise<LibraryItem[]> => {
   try {
+    if (!GAS_WEB_APP_URL) {
+      console.error("VITE_GAS_URL is not defined in environment variables.");
+      return [];
+    }
+    
     const response = await fetch(`${GAS_WEB_APP_URL}?action=getLibrary`);
-    if (!response.ok) return [];
+    
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`GAS Fetch Error (${response.status}):`, text);
+      return [];
+    }
+    
     const result: GASResponse<LibraryItem[]> = await response.json();
+    
+    if (result.status === 'error') {
+      console.error("GAS Service reported an error:", result.message);
+      return [];
+    }
+    
     return result.data || [];
   } catch (error) {
+    console.error("Library Fetch Critical Error (Likely CORS or URL issue):", error);
     return [];
   }
 };
@@ -52,7 +72,7 @@ export const callAiProxy = async (provider: 'groq' | 'gemini', prompt: string, m
     
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`GAS HTTP Error ${response.status}: ${errorText}`);
+      throw new Error(`GAS AI Proxy HTTP Error ${response.status}: ${errorText}`);
     }
     
     const result = await response.json();
@@ -80,19 +100,19 @@ export const fetchAiConfig = async (): Promise<{ model: string }> => {
 
 /**
  * Mengunggah file ke GAS dan mengekstrak teks secara programmatic.
- * Menggantikan dependensi pada Python API (/api/extract).
  */
 export const uploadAndStoreFile = async (file: File): Promise<ExtractionResult | null> => {
   try {
-    // 1. Konversi file ke Base64
     const reader = new FileReader();
     const base64Promise = new Promise<string>((resolve) => {
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]);
+      };
       reader.readAsDataURL(file);
     });
     const fileData = await base64Promise;
 
-    // 2. Kirim ke GAS untuk upload dan ekstraksi teks programmatic (Non-AI)
     const gasResponse = await fetch(GAS_WEB_APP_URL, {
       method: 'POST',
       body: JSON.stringify({ 
@@ -103,7 +123,10 @@ export const uploadAndStoreFile = async (file: File): Promise<ExtractionResult |
       }),
     });
 
-    if (!gasResponse.ok) throw new Error('GAS server returned an error during upload.');
+    if (!gasResponse.ok) {
+      const errText = await gasResponse.text();
+      throw new Error(`Upload Failed: ${errText}`);
+    }
     
     const gasResult = await gasResponse.json();
     if (gasResult.status !== 'success') throw new Error(gasResult.message || 'File processing failed at GAS.');
@@ -111,7 +134,6 @@ export const uploadAndStoreFile = async (file: File): Promise<ExtractionResult |
     const extractedText = gasResult.extractedText || "";
     const fileId = gasResult.fileId || "";
 
-    // 3. Siapkan Chunks secara lokal (Client-side) untuk efisiensi
     const limitTotal = 200000;
     const limitedText = extractedText.substring(0, limitTotal);
     const aiSnippet = limitedText.substring(0, 7500);
@@ -154,8 +176,10 @@ export const saveLibraryItem = async (item: LibraryItem): Promise<boolean> => {
       });
       return true;
     }
+    console.error("Save Error:", result.message);
     return false;
   } catch (error) {
+    console.error("Sync Critical Error:", error);
     Toast.fire({ icon: 'error', title: 'Sync failed' });
     return false;
   }
@@ -170,6 +194,7 @@ export const deleteLibraryItem = async (id: string): Promise<boolean> => {
     const result: GASResponse<any> = await response.json();
     return result.status === 'success';
   } catch (error) {
+    console.error("Delete Error:", error);
     return false;
   }
 };
