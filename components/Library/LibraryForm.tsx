@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 // @ts-ignore
 import { useNavigate } from 'react-router-dom';
@@ -69,7 +68,6 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      // PERMINTAAN: Perbesar ukuran maksimal menjadi 25 Mb
       if (selectedFile.size > 25 * 1024 * 1024) {
         showXeenapsAlert({ 
           icon: 'error', 
@@ -85,8 +83,10 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       try {
         const result = await uploadAndStoreFile(selectedFile);
         if (result) {
-          const pythonChunks = result.chunks || [];
+          const processedChunks = result.chunks || [];
           setExtractionStage('AI_ANALYSIS');
+          
+          // AI tetap digunakan hanya untuk analisa metadata awal
           const aiMeta = await extractMetadataWithAI(result.aiSnippet || result.fullText || "");
           
           setFormData(prev => ({
@@ -102,14 +102,13 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
             topic: aiMeta.topic || prev.topic,
             subTopic: aiMeta.subTopic || prev.subTopic,
             fileId: result.fileId || prev.fileId,
-            // Mapping AI citations to state
             inTextAPA: aiMeta.inTextAPA || '',
             inTextHarvard: aiMeta.inTextHarvard || '',
             inTextChicago: aiMeta.inTextChicago || '',
             bibAPA: aiMeta.bibAPA || '',
             bibHarvard: aiMeta.bibHarvard || '',
             bibChicago: aiMeta.bibChicago || '',
-            chunks: pythonChunks 
+            chunks: processedChunks 
           }));
         }
       } catch (err: any) {
@@ -140,7 +139,6 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
 
     setIsSubmitting(true);
     
-    // Logika deteksi format berdasarkan ekstensi file
     let detectedFormat = FileFormat.PDF;
     if (file) {
       const extension = file.name.split('.').pop()?.toLowerCase();
@@ -155,6 +153,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
         case 'txt': detectedFormat = FileFormat.TXT; break;
         case 'md': detectedFormat = FileFormat.MD; break;
         case 'epub': detectedFormat = FileFormat.EPUB; break;
+        case 'jpg': case 'jpeg': case 'png': case 'gif': detectedFormat = FileFormat.PDF; break; // Gambar diproses sebagai konten dokumen
         default: detectedFormat = FileFormat.PDF;
       }
     }
@@ -180,15 +179,12 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       keywords: formData.keywords,
       labels: formData.labels,
       tags: [...formData.keywords, ...formData.labels],
-      
-      // Academic Citations
       inTextAPA: formData.inTextAPA,
       inTextHarvard: formData.inTextHarvard,
       inTextChicago: formData.inTextChicago,
       bibAPA: formData.bibAPA,
       bibHarvard: formData.bibHarvard,
       bibChicago: formData.bibChicago,
-
       researchMethodology: '',
       abstract: '',
       summary: '',
@@ -198,7 +194,6 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       supportingReferences: '',
       videoRecommendation: '',
       quickTipsForYou: '',
-      
       extractedInfo1: formData.chunks[0] || '',
       extractedInfo2: formData.chunks[1] || '',
       extractedInfo3: formData.chunks[2] || '',
@@ -256,15 +251,14 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                   ) : (
                     <>
                       <CloudArrowUpIcon className={`w-8 h-8 ${!file ? 'text-red-300' : 'text-gray-300'} group-hover:text-[#004A74] mb-2 transition-colors`} />
-                      <p className="text-sm text-gray-500 group-hover:text-[#004A74] px-6 text-center">{file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Drop PDF, DOCX, PPTX, or XLSX here (Max 25Mb)"}</p>
+                      <p className="text-sm text-gray-500 group-hover:text-[#004A74] px-6 text-center">{file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Drop PDF, Word, PPT, Excel or Image here (Max 25Mb)"}</p>
                     </>
                   )}
-                  {/* PERMINTAAN: Bisa multiformat file dokumen (pdf, docx, txt, excel, ppt) */}
                   <input 
                     type="file" 
                     className="hidden" 
                     onChange={handleFileChange} 
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.epub" 
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.epub,.jpg,.jpeg,.png" 
                     disabled={isExtracting} 
                   />
                 </label>

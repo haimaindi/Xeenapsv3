@@ -56,9 +56,24 @@ function doPost(e) {
     }
     if (action === 'uploadOnly') {
       const folder = DriveApp.getFolderById(CONFIG.FOLDERS.MAIN_LIBRARY);
-      const blob = Utilities.newBlob(Utilities.base64Decode(body.fileData), 'application/pdf', body.fileName);
+      const mimeType = body.mimeType || 'application/octet-stream';
+      const blob = Utilities.newBlob(Utilities.base64Decode(body.fileData), mimeType, body.fileName);
       const file = folder.createFile(blob);
-      return createJsonResponse({ status: 'success', fileId: file.getId() });
+      const fileId = file.getId();
+
+      // Programmatic Extraction (Non-AI)
+      let extractedText = "";
+      try {
+        extractedText = extractTextContent(blob, mimeType);
+      } catch (err) {
+        extractedText = "Extraction failed: " + err.toString();
+      }
+
+      return createJsonResponse({ 
+        status: 'success', 
+        fileId: fileId, 
+        extractedText: extractedText 
+      });
     }
     if (action === 'aiProxy') {
       const { provider, prompt, modelOverride } = body;
@@ -68,6 +83,43 @@ function doPost(e) {
     return createJsonResponse({ status: 'error', message: 'Invalid action: ' + action });
   } catch (err) {
     return createJsonResponse({ status: 'error', message: err.toString() });
+  }
+}
+
+/**
+ * Menggunakan fitur konversi Google Drive untuk mengekstrak teks secara programmatic.
+ */
+function extractTextContent(blob, mimeType) {
+  const resource = {
+    title: blob.getName(),
+    mimeType: mimeType
+  };
+
+  // Gunakan Drive API v2 untuk konversi otomatis (OCR/Format)
+  // Memerlukan Drive API Advanced Service diaktifkan di GAS
+  const options = {
+    ocr: true,
+    ocrLanguage: "en",
+    convert: true
+  };
+
+  try {
+    // Unggah dan konversi sementara ke Google Doc
+    const tempFile = Drive.Files.insert(resource, blob, options);
+    const tempDoc = DocumentApp.openById(tempFile.id);
+    const text = tempDoc.getBody().getText();
+    
+    // Hapus file sementara
+    Drive.Files.remove(tempFile.id);
+    
+    return text;
+  } catch (e) {
+    // Fallback jika Drive API v2 tidak tersedia atau error
+    // Mencoba pembacaan teks dasar untuk txt/md/csv
+    if (mimeType.includes('text/') || mimeType.includes('csv')) {
+      return blob.getDataAsString();
+    }
+    throw e;
   }
 }
 

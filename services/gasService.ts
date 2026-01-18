@@ -1,4 +1,3 @@
-
 import { LibraryItem, GASResponse, ExtractionResult } from '../types';
 import { GAS_WEB_APP_URL } from '../constants';
 import Swal from 'sweetalert2';
@@ -79,22 +78,13 @@ export const fetchAiConfig = async (): Promise<{ model: string }> => {
   }
 };
 
+/**
+ * Mengunggah file ke GAS dan mengekstrak teks secara programmatic.
+ * Menggantikan dependensi pada Python API (/api/extract).
+ */
 export const uploadAndStoreFile = async (file: File): Promise<ExtractionResult | null> => {
   try {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const pyResponse = await fetch('/api/extract', {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (!pyResponse.ok) throw new Error('Text extraction failed');
-    const pyResult = await pyResponse.json();
-    if (pyResult.status !== 'success') throw new Error(pyResult.message);
-    
-    const rawData = pyResult.data;
-
+    // 1. Konversi file ke Base64
     const reader = new FileReader();
     const base64Promise = new Promise<string>((resolve) => {
       reader.onload = () => resolve((reader.result as string).split(',')[1]);
@@ -102,25 +92,47 @@ export const uploadAndStoreFile = async (file: File): Promise<ExtractionResult |
     });
     const fileData = await base64Promise;
 
+    // 2. Kirim ke GAS untuk upload dan ekstraksi teks programmatic (Non-AI)
     const gasResponse = await fetch(GAS_WEB_APP_URL, {
       method: 'POST',
       body: JSON.stringify({ 
         action: 'uploadOnly', 
         fileData, 
-        fileName: file.name 
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream'
       }),
     });
+
+    if (!gasResponse.ok) throw new Error('GAS server returned an error during upload.');
+    
     const gasResult = await gasResponse.json();
-    const fileId = gasResult.status === 'success' ? gasResult.fileId : '';
+    if (gasResult.status !== 'success') throw new Error(gasResult.message || 'File processing failed at GAS.');
+
+    const extractedText = gasResult.extractedText || "";
+    const fileId = gasResult.fileId || "";
+
+    // 3. Siapkan Chunks secara lokal (Client-side) untuk efisiensi
+    const limitTotal = 200000;
+    const limitedText = extractedText.substring(0, limitTotal);
+    const aiSnippet = limitedText.substring(0, 7500);
+    
+    const chunkSize = 20000;
+    const chunks: string[] = [];
+    for (let i = 0; i < limitedText.length; i += chunkSize) {
+      if (chunks.length >= 10) break;
+      chunks.push(limitedText.substring(i, i + chunkSize));
+    }
 
     return {
-      ...rawData,
+      title: file.name.split('.')[0].replace(/_/g, ' '),
       fileId,
-      aiSnippet: rawData.aiSnippet || (rawData.chunks?.[0] || "")
+      fullText: limitedText,
+      aiSnippet,
+      chunks
     } as ExtractionResult;
 
   } catch (error: any) {
-    console.error('Storage Error:', error);
+    console.error('Extraction/Storage Error:', error);
     throw error;
   }
 };
