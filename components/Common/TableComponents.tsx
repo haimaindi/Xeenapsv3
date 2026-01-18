@@ -17,7 +17,7 @@ export const StandardTableContainer: React.FC<{ children: React.ReactNode }> = (
  */
 export const StandardTableWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
-    <table className="w-full text-left border-collapse min-w-[1200px]">
+    <table className="w-full text-left border-separate border-spacing-0 min-w-[1200px]">
       {children}
     </table>
   </div>
@@ -25,6 +25,7 @@ export const StandardTableWrapper: React.FC<{ children: React.ReactNode }> = ({ 
 
 /**
  * Standard Xeenaps Table Header Cell
+ * Updated: Center-aligned content with justify-center and support for frozen column styles.
  */
 export const StandardTh: React.FC<{
   children: React.ReactNode;
@@ -39,7 +40,7 @@ export const StandardTh: React.FC<{
       onClick ? 'cursor-pointer group/th select-none' : ''
     } ${!isActiveSort ? 'bg-gray-50' : ''} ${className}`}
     style={{
-      ...width ? { width } : {},
+      ...width ? { width, minWidth: width } : {},
       ...(isActiveSort ? { 
         backgroundColor: '#FFFFFF', 
         backgroundImage: 'linear-gradient(rgba(0, 74, 116, 0.15), rgba(0, 74, 116, 0.15))',
@@ -47,7 +48,7 @@ export const StandardTh: React.FC<{
       } : {})
     }}
   >
-    <div className="flex items-center gap-2">
+    <div className="flex items-center justify-center gap-2">
       {children}
     </div>
   </th>

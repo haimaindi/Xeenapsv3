@@ -72,7 +72,6 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 1024);
     window.addEventListener('resize', handleResize);
-    // Fix: replaced non-existent window.removeResize() with window.removeEventListener for correct cleanup
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -273,14 +272,19 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
           <StandardTableWrapper>
             <thead className="sticky top-0 z-[50]">
               <tr>
-                <th className="px-6 py-4 w-12 bg-gray-50 border-r border-gray-100/50 shadow-sm"><StandardCheckbox onChange={toggleSelectAll} checked={paginatedItems.length > 0 && selectedIds.length === paginatedItems.length} /></th>
+                {/* Checkbox Header: Frozen at left-0 */}
+                <th className="sticky left-0 z-[60] px-6 py-4 w-12 bg-gray-50 border-r border-gray-100/50 shadow-sm text-center">
+                  <div className="flex items-center justify-center">
+                    <StandardCheckbox onChange={toggleSelectAll} checked={paginatedItems.length > 0 && selectedIds.length === paginatedItems.length} />
+                  </div>
+                </th>
                 {tableColumns.map(col => (
                   <StandardTh 
                     key={col.key} 
                     onClick={() => handleSort(col.key)} 
                     isActiveSort={sortConfig.key === col.key}
                     width={col.width}
-                    className={col.key === 'title' ? 'sticky left-12 z-40 border-r border-gray-100/50 shadow-sm' : ''}
+                    className={col.key === 'title' ? 'sticky left-12 z-[55] border-r border-gray-100/50 shadow-sm' : ''}
                   >
                     {col.label} {getSortIcon(col.key)}
                   </StandardTh>
@@ -293,9 +297,11 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
               ) : (
                 paginatedItems.map((item) => (
                   <StandardTr key={item.id} className="cursor-pointer" onClick={() => setSelectedItem(item)}>
-                    <td className="px-6 py-4 sticky left-0 z-20 border-r border-gray-100/50 bg-white group-hover:bg-[#f0f7fa] shadow-sm" onClick={(e) => e.stopPropagation()}>
+                    {/* Checkbox Cell: Frozen at left-0 */}
+                    <td className="px-6 py-4 sticky left-0 z-20 border-r border-gray-100/50 bg-white group-hover:bg-[#f0f7fa] shadow-sm text-center" onClick={(e) => e.stopPropagation()}>
                       <StandardCheckbox checked={selectedIds.includes(item.id)} onChange={() => toggleSelectItem(item.id)} />
                     </td>
+                    {/* Title Cell: Frozen at left-12 */}
                     <StandardTd isActiveSort={sortConfig.key === 'title'} className="sticky left-12 z-20 border-r border-gray-100/50 bg-white group-hover:bg-[#f0f7fa] shadow-sm">
                       <div className="flex items-start gap-2 group/title">
                         <div className="shrink-0 mt-0.5 transition-transform group-hover/title:scale-110">
@@ -319,17 +325,17 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
                         <EyeIcon className="w-3.5 h-3.5 text-gray-300 group-hover/title:text-[#004A74] opacity-0 group-hover/title:opacity-100 transition-all shrink-0 mt-1" />
                       </div>
                     </StandardTd>
-                    <StandardTd isActiveSort={sortConfig.key === 'author'} className="text-xs text-gray-600 italic">
+                    <StandardTd isActiveSort={sortConfig.key === 'author'} className="text-xs text-gray-600 italic text-center">
                       <div className="line-clamp-2">{item.author || '-'}</div>
                     </StandardTd>
-                    <StandardTd isActiveSort={sortConfig.key === 'publisher'} className="text-xs text-gray-600">
+                    <StandardTd isActiveSort={sortConfig.key === 'publisher'} className="text-xs text-gray-600 text-center">
                       <div className="line-clamp-2">{item.publisher || '-'}</div>
                     </StandardTd>
-                    <StandardTd isActiveSort={sortConfig.key === 'year'} className="text-xs text-gray-600 font-mono">{item.year || '-'}</StandardTd>
-                    <StandardTd isActiveSort={sortConfig.key === 'category'} className="text-xs text-gray-600">{item.category || '-'}</StandardTd>
-                    <StandardTd isActiveSort={sortConfig.key === 'topic'} className="text-xs text-gray-600">{item.topic || '-'}</StandardTd>
-                    <StandardTd isActiveSort={sortConfig.key === 'subTopic'} className="text-xs text-gray-600">{item.subTopic || '-'}</StandardTd>
-                    <StandardTd isActiveSort={sortConfig.key === 'createdAt'} className="text-xs font-medium text-gray-400 whitespace-nowrap">{formatDateTime(item.createdAt)}</StandardTd>
+                    <StandardTd isActiveSort={sortConfig.key === 'year'} className="text-xs text-gray-600 font-mono text-center">{item.year || '-'}</StandardTd>
+                    <StandardTd isActiveSort={sortConfig.key === 'category'} className="text-xs text-gray-600 text-center">{item.category || '-'}</StandardTd>
+                    <StandardTd isActiveSort={sortConfig.key === 'topic'} className="text-xs text-gray-600 text-center">{item.topic || '-'}</StandardTd>
+                    <StandardTd isActiveSort={sortConfig.key === 'subTopic'} className="text-xs text-gray-600 text-center">{item.subTopic || '-'}</StandardTd>
+                    <StandardTd isActiveSort={sortConfig.key === 'createdAt'} className="text-xs font-medium text-gray-400 whitespace-nowrap text-center">{formatDateTime(item.createdAt)}</StandardTd>
                   </StandardTr>
                 ))
               )}
@@ -348,7 +354,6 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
               isSelected={selectedIds.includes(item.id)} 
               onClick={() => setSelectedItem(item)}
             >
-              {/* Row 1: Checkbox & Category */}
               <div className="flex items-center gap-3 mb-2" onClick={(e) => e.stopPropagation()}>
                 <button 
                   onClick={() => toggleSelectItem(item.id)}
@@ -360,22 +365,16 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
                   {item.category || 'GENERAL'}
                 </span>
               </div>
-
-              {/* Row 2: TOPIC */}
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#004A74] opacity-80">
                   {item.topic || 'NO TOPIC'}
                 </span>
               </div>
-
-              {/* Row 3: SubTopic */}
               <div className="mt-[-4px] mb-2">
                 <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
                   {item.subTopic || 'No Sub Topic'}
                 </span>
               </div>
-
-              {/* Row 4: TITLE */}
               <div className="flex items-start gap-2 mb-3">
                 <div className="shrink-0 mt-1">
                   {item.addMethod === 'FILE' ? (
@@ -394,20 +393,13 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
                   {item.isFavorite && <StarSolid className="w-3 h-3 text-[#FED400]" />}
                 </div>
               </div>
-
-              {/* Row 5: Author(s) */}
               <p className="text-xs font-medium text-gray-500 italic line-clamp-2 mb-1">
                 {item.author || 'Unknown Author'}
               </p>
-
-              {/* Row 6: Publisher */}
               <p className="text-[11px] text-gray-400 truncate mb-4">
                 {item.publisher || '-'}
               </p>
-
               <div className="h-px bg-gray-50 mb-3" />
-
-              {/* Row 7: YEAR | Date */}
               <div className="flex items-center justify-between text-gray-400">
                 <span className="text-xs font-mono font-black text-[#004A74]">
                   {item.year || '-'}
