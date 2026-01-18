@@ -2,6 +2,7 @@
 import io
 import re
 from pypdf import PdfReader
+from pptx import Presentation
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -13,7 +14,7 @@ def clean_text(text):
 
 def extract_metadata_heuristics(full_text, filename):
     metadata = {
-        "title": filename.replace(".pdf", "").replace("_", " "),
+        "title": filename.rsplit('.', 1)[0].replace("_", " "),
         "authors": [],
         "year": "",
         "publisher": "",
@@ -48,17 +49,35 @@ def extract():
 
         file_bytes = file.read()
         f = io.BytesIO(file_bytes)
-        
-        try:
-            reader = PdfReader(f)
-            full_text = ""
-            # Loop through all pages
-            for page in reader.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    full_text += page_text + "\n"
-        except Exception as pdf_err:
-            return jsonify({"status": "error", "message": f"PDF Error: {str(pdf_err)}"}), 422
+        filename_lower = file.filename.lower()
+        full_text = ""
+
+        if filename_lower.endswith('.pdf'):
+            try:
+                reader = PdfReader(f)
+                # Loop through all pages
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        full_text += page_text + "\n"
+            except Exception as pdf_err:
+                return jsonify({"status": "error", "message": f"PDF Error: {str(pdf_err)}"}), 422
+        elif filename_lower.endswith('.pptx'):
+            try:
+                prs = Presentation(f)
+                for slide in prs.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text") and shape.text:
+                            full_text += shape.text + "\n"
+                    # Include notes for better AI analysis context
+                    if slide.has_notes_slide:
+                        notes_text = slide.notes_slide.notes_text_frame.text
+                        if notes_text:
+                            full_text += notes_text + "\n"
+            except Exception as ppt_err:
+                return jsonify({"status": "error", "message": f"PPTX Error: {str(ppt_err)}"}), 422
+        else:
+            return jsonify({"status": "error", "message": "Unsupported file format. Please upload PDF or PPTX."}), 400
 
         if not full_text.strip():
             return jsonify({"status": "error", "message": "Could not extract text."}), 422

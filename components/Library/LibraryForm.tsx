@@ -128,6 +128,12 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
     }
 
     setIsSubmitting(true);
+    
+    let detectedFormat = FileFormat.PDF;
+    if (file && file.name.toLowerCase().endsWith('.pptx')) {
+      detectedFormat = FileFormat.PPTX;
+    }
+
     const newItem: LibraryItem = {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
@@ -143,7 +149,7 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
       year: formData.year,
       addMethod: formData.addMethod,
       source: formData.addMethod === 'LINK' ? SourceType.LINK : SourceType.FILE,
-      format: formData.addMethod === 'LINK' ? FileFormat.URL : FileFormat.PDF,
+      format: formData.addMethod === 'LINK' ? FileFormat.URL : detectedFormat,
       url: formData.addMethod === 'LINK' ? formData.url : '',
       fileId: formData.addMethod === 'FILE' ? formData.fileId : '',
       keywords: formData.keywords,
@@ -225,10 +231,10 @@ const LibraryForm: React.FC<LibraryFormProps> = ({ onComplete, items = [] }) => 
                   ) : (
                     <>
                       <CloudArrowUpIcon className={`w-8 h-8 ${!file ? 'text-red-300' : 'text-gray-300'} group-hover:text-[#004A74] mb-2 transition-colors`} />
-                      <p className="text-sm text-gray-500 group-hover:text-[#004A74] px-6 text-center">{file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Click or drag PDF file here (Max 19.9Mb)"}</p>
+                      <p className="text-sm text-gray-500 group-hover:text-[#004A74] px-6 text-center">{file ? <span className="font-bold text-[#004A74]">{file.name}</span> : "Click or drag PDF or PPTX file here (Max 19.9Mb)"}</p>
                     </>
                   )}
-                  <input type="file" className="hidden" onChange={handleFileChange} accept=".pdf" disabled={isExtracting} />
+                  <input type="file" className="hidden" onChange={handleFileChange} accept=".pdf,.pptx" disabled={isExtracting} />
                 </label>
               </FormField>
             )}

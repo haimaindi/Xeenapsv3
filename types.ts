@@ -13,7 +13,8 @@ export enum FileFormat {
   MD = 'MD',
   MP4 = 'MP4',
   URL = 'URL',
-  EPUB = 'EPUB'
+  EPUB = 'EPUB',
+  PPTX = 'PPTX'
 }
 
 export enum LibraryType {
