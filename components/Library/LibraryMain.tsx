@@ -200,7 +200,7 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
   ];
 
   return (
-    <div className="flex flex-col space-y-4 animate-in fade-in duration-500 overflow-visible relative">
+    <div className="flex flex-col flex-1 h-full overflow-y-auto no-scrollbar space-y-4 animate-in fade-in duration-500 relative pr-1">
       {/* Detail Overlay */}
       {selectedItem && (
         <LibraryDetailView item={selectedItem} onClose={() => setSelectedItem(null)} />
@@ -264,7 +264,8 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         </div>
       )}
 
-      <div className="hidden lg:flex flex-col">
+      {/* lg:flex-none to allow root container to handle scrolling */}
+      <div className="hidden lg:flex flex-col flex-none">
         <StandardTableContainer>
           <StandardTableWrapper>
             <thead className="sticky top-0 z-[50]">
@@ -335,7 +336,8 @@ const LibraryMain: React.FC<LibraryMainProps> = ({ items, isLoading, onRefresh, 
         </StandardTableContainer>
       </div>
 
-      <div className="flex lg:hidden flex-col space-y-3 pb-10">
+      {/* flex-none to allow root container to handle scrolling */}
+      <div className="flex lg:hidden flex-col space-y-3 pb-10 flex-none">
         {paginatedItems.map((item) => (
           <div key={item.id} className={`relative flex flex-col p-5 bg-white border rounded-3xl transition-all ${selectedIds.includes(item.id) ? 'border-[#004A74] shadow-md bg-[#004A74]/5 scale-[0.98]' : 'border-gray-100 shadow-sm active:scale-[0.98]'}`} onClick={() => setSelectedItem(item)}>
             
